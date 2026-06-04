@@ -1,0 +1,176 @@
+/* ============================================================
+   AIDA Hotel OS — Design Tokens
+   Warm Mediterranean luxury resort theme + Evening (dark) mode.
+   Multi-tenant: --brand-* tokens are overridable per hotel.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* ---- Brand (multi-tenant overridable) ---- */
+  --brand-primary:    #A85C3C;   /* clay / terracotta */
+  --brand-primary-700:#8A4A30;
+  --brand-secondary:  #335E55;   /* deep sea green */
+  --brand-accent:     #C2A05B;   /* gold */
+
+  /* ---- Surfaces & ink (light / day) ---- */
+  --bg:        #FAF6F0;          /* warm ivory */
+  --bg-2:      #F2EBE0;          /* sand */
+  --surface:   #FFFFFF;
+  --surface-2: #F6F0E7;
+  --ink:       #2A2723;          /* warm near-black */
+  --ink-2:     #6E665C;          /* muted */
+  --ink-3:     #A49A8D;          /* caption / placeholder */
+  --line:      #E9E0D1;          /* hairline */
+  --line-2:    #DDD2BF;
+
+  /* ---- Semantic ---- */
+  --success: #4F7A5B;
+  --warning: #C28B3A;
+  --error:   #B4543E;
+  --info:    var(--brand-secondary);
+
+  /* ---- On-color text ---- */
+  --on-primary: #FFFFFF;
+  --on-dark:    #FBF7F0;
+
+  /* ---- Type ---- */
+  --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --font-ui:      'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* ---- Radius (softness, tweakable) ---- */
+  --r-soft: 1;
+  --r-xs:  calc(8px  * var(--r-soft));
+  --r-sm:  calc(12px * var(--r-soft));
+  --r-md:  calc(18px * var(--r-soft));
+  --r-lg:  calc(26px * var(--r-soft));
+  --r-xl:  calc(34px * var(--r-soft));
+  --r-pill: 999px;
+
+  /* ---- Spacing (4 / 8 pt grid) ---- */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-7: 32px; --s-8: 40px;
+  --s-9: 48px; --s-10: 64px;
+
+  /* ---- Shadows (soft, warm) ---- */
+  --sh-1: 0 1px 2px rgba(60,40,20,.05), 0 1px 1px rgba(60,40,20,.04);
+  --sh-2: 0 6px 18px -8px rgba(70,45,25,.18), 0 2px 6px -2px rgba(70,45,25,.08);
+  --sh-3: 0 18px 44px -16px rgba(60,40,20,.30), 0 6px 16px -8px rgba(60,40,20,.14);
+  --sh-up: 0 -8px 28px -14px rgba(50,35,20,.18);
+
+  /* ---- Gradient placeholders (stand in for resort photography) ---- */
+  --ph-sea:    linear-gradient(160deg,#7FB4B0 0%,#3E7C77 55%,#234f4b 100%);
+  --ph-sand:   linear-gradient(160deg,#E8CBA0 0%,#CDA06B 60%,#A87644 100%);
+  --ph-sunset: linear-gradient(160deg,#F0B486 0%,#D67F57 45%,#9C4E3C 100%);
+  --ph-spa:    linear-gradient(160deg,#CBD6C4 0%,#8FA585 55%,#5E7458 100%);
+  --ph-night:  linear-gradient(160deg,#5B5470 0%,#3A3450 55%,#211d33 100%);
+  --ph-wine:   linear-gradient(160deg,#9C5A60 0%,#6E363E 55%,#43202a 100%);
+}
+
+/* ---------- Evening (dark) mode ---------- */
+[data-mode="evening"] {
+  --bg:        #16130F;
+  --bg-2:      #1E1A15;
+  --surface:   #221D17;
+  --surface-2: #2A241D;
+  --ink:       #F3EBDF;
+  --ink-2:     #B9AE9D;
+  --ink-3:     #847A6C;
+  --line:      #342D24;
+  --line-2:    #423929;
+  --on-primary:#FFFFFF;
+  --sh-2: 0 8px 22px -10px rgba(0,0,0,.55);
+  --sh-3: 0 22px 50px -18px rgba(0,0,0,.65);
+  --sh-up: 0 -8px 28px -14px rgba(0,0,0,.5);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body { margin: 0; }
+
+.aida-app, .aida-app * {
+  font-family: var(--font-ui);
+}
+
+/* ---------- Type scale ---------- */
+.t-display { font-family: var(--font-display); font-weight: 500; font-size: 40px; line-height: 1.04; letter-spacing: -.01em; color: var(--ink); }
+.t-h1      { font-family: var(--font-display); font-weight: 500; font-size: 30px; line-height: 1.08; color: var(--ink); }
+.t-h2      { font-family: var(--font-display); font-weight: 500; font-size: 24px; line-height: 1.12; color: var(--ink); }
+.t-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-3); }
+.t-title   { font-size: 17px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+.t-body    { font-size: 15px; font-weight: 400; line-height: 1.5; color: var(--ink-2); }
+.t-label   { font-size: 13px; font-weight: 600; color: var(--ink); }
+.t-caption { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+
+/* ---------- Reusable primitives ---------- */
+.card {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-2);
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+
+.hairline { height: 1px; background: var(--line); border: 0; margin: 0; }
+
+.btn {
+  font-family: var(--font-ui);
+  border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-weight: 700; font-size: 15px; letter-spacing: .01em;
+  border-radius: var(--r-pill);
+  padding: 14px 22px;
+  transition: transform .15s ease, background .2s ease, box-shadow .2s ease, opacity .2s;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--brand-primary); color: var(--on-primary); box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--brand-primary) 80%, black); }
+.btn-primary:hover { background: var(--brand-primary-700); }
+.btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line-2); }
+.btn-secondary { background: color-mix(in srgb, var(--brand-secondary) 12%, var(--surface)); color: var(--brand-secondary); }
+.btn-block { width: 100%; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: var(--r-pill);
+  font-size: 13px; font-weight: 600;
+  background: var(--surface); color: var(--ink-2);
+  border: 1px solid var(--line);
+  cursor: pointer; white-space: nowrap;
+  transition: all .18s ease;
+}
+.chip[data-active="true"] { background: var(--ink); color: var(--on-dark); border-color: var(--ink); }
+
+.tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: var(--r-pill);
+  font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  background: color-mix(in srgb, var(--brand-accent) 18%, var(--surface));
+  color: color-mix(in srgb, var(--brand-accent) 55%, var(--ink));
+}
+
+/* scrollbars hidden for app feel */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* photo placeholder helper */
+.ph {
+  position: relative; overflow: hidden;
+  background-size: cover; background-position: center;
+}
+
+/* image-slot empty state: let the gradient backing show through, tint caption light */
+image-slot::part(frame) { background: transparent; }
+image-slot::part(empty) { color: rgba(255,255,255,.92); text-shadow: 0 1px 6px rgba(0,0,0,.35); }
+.ph::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 30%, rgba(20,12,6,.55) 100%);
+}
+.ph-grain::before {
+  content:""; position:absolute; inset:0; opacity:.10; mix-blend-mode:overlay;
+  background-image: radial-gradient(rgba(255,255,255,.6) .5px, transparent .5px);
+  background-size: 4px 4px;
+}
+
+@keyframes floatUp { from { opacity:0; transform: translateY(14px);} to {opacity:1; transform:none;} }
+@keyframes fadeIn { from { opacity:0;} to {opacity:1;} }
+.anim-up { animation: floatUp .5s cubic-bezier(.2,.7,.2,1) both; }
+.anim-in { animation: fadeIn .4s ease both; }

@@ -1,0 +1,148 @@
+/* ============================================================
+   AIDA Operations — operator console skin
+   Overrides the teal brand accent with indigo to signal
+   "internal tool", plus console-specific components.
+   Loads AFTER tokens.css + app.css + settings.css.
+   ============================================================ */
+
+/* ---- accent override: indigo "operator" identity ---- */
+[data-theme="light"] {
+  --accent: #5457D6;
+  --accent-hover: #4548C2;
+  --accent-press: #3A3CA8;
+  --accent-soft: #ECEDFC;
+  --accent-soft-2: #DCDDF8;
+  --accent-line: #CDCEF2;
+  --accent-contrast: #FFFFFF;
+  --chart-1: #5457D6;
+  --chart-2: #8E90EC;
+  --ring: 0 0 0 3px rgba(84,87,214,.16);
+}
+[data-theme="dark"] {
+  --accent: #9092F2;
+  --accent-hover: #A8AAF6;
+  --accent-press: #7B7DE6;
+  --accent-soft: rgba(144,146,242,.14);
+  --accent-soft-2: rgba(144,146,242,.22);
+  --accent-line: rgba(144,146,242,.34);
+  --accent-contrast: #0B0C28;
+  --chart-1: #9092F2;
+  --chart-2: #B6B7F7;
+  --ring: 0 0 0 3px rgba(144,146,242,.22);
+}
+
+/* ---- operator brandmark + sidebar ---- */
+.brandmark.ops { background: linear-gradient(145deg, #6E70E8, #4B4DC6); box-shadow: 0 2px 8px -1px rgba(84,87,214,.5), inset 0 1px 0 rgba(255,255,255,.22); }
+.brand__ops-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 9px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--accent); background: var(--accent-soft);
+  padding: 2px 7px; border-radius: var(--r-pill); margin-top: 3px;
+}
+
+/* operator identity block (replaces tenant switcher) */
+.operator {
+  margin: var(--sp-4) var(--sp-4) var(--sp-2);
+  padding: 10px 11px; display: flex; align-items: center; gap: 10px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md);
+}
+.operator__av { width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0; display: grid; place-items: center; font-weight: 700; font-size: var(--text-sm); background: linear-gradient(145deg, #6E70E8, #4B4DC6); color: #fff; }
+.operator__meta { min-width: 0; flex: 1; }
+.operator__name { font-size: var(--text-sm); font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.operator__role { font-size: var(--text-xs); color: var(--accent); font-weight: 500; }
+
+/* ---- platform KPI tweaks: indigo tile ---- */
+.kpi__ico.kpi__ico--alert { background: var(--warning-soft); color: var(--warning); }
+
+/* ---- account table ---- */
+.acct-table .table__logo { border-radius: 9px; }
+.acct-cell-owner { font-size: var(--text-sm); color: var(--text-2); }
+.acct-cell-owner b { color: var(--text); font-weight: 600; }
+.plan-tag { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); font-weight: 600; }
+.plan-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.row-link { cursor: pointer; }
+.row-link:hover td { background: var(--surface-2); }
+.mrr-val { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
+
+/* segmented view toggle */
+.view-toggle { display: inline-flex; gap: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); padding: 3px; }
+.view-toggle button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: none; background: none; border-radius: var(--r-sm); font: inherit; font-size: var(--text-sm); font-weight: 500; color: var(--text-2); cursor: pointer; transition: var(--transition); }
+.view-toggle button.on { background: var(--surface); color: var(--accent); box-shadow: var(--shadow-sm); }
+
+/* ---- account cards (list variation B) ---- */
+.acct-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: var(--sp-5); }
+.acct-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); transition: var(--transition); cursor: pointer; overflow: hidden; }
+.acct-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); transform: translateY(-2px); }
+.acct-card__top { display: flex; align-items: center; gap: 13px; padding: var(--sp-5) var(--sp-5) 14px; }
+.acct-card__logo { width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0; display: grid; place-items: center; font-weight: 700; font-size: var(--text-md); color: #fff; }
+.acct-card__name { font-size: var(--text-lg); font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+.acct-card__owner { font-size: var(--text-sm); color: var(--text-3); margin-top: 2px; }
+.acct-card__body { padding: 0 var(--sp-5) 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.acct-stat__k { font-size: var(--text-xs); color: var(--text-3); }
+.acct-stat__v { font-size: var(--text-md); font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.acct-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px var(--sp-5); border-top: 1px solid var(--border-faint); background: var(--surface-2); }
+.acct-credit { display: flex; flex-direction: column; gap: 5px; padding: 0 var(--sp-5) var(--sp-5); }
+.acct-credit__top { display: flex; justify-content: space-between; font-size: var(--text-xs); color: var(--text-3); }
+
+/* ---- plans ---- */
+.plan-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-5); }
+.plan-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); padding: var(--sp-5); display: flex; flex-direction: column; }
+.plan-card.feat { border-color: var(--accent-line); box-shadow: 0 0 0 1px var(--accent-line), var(--shadow-md); }
+.plan-card__name { font-size: var(--text-lg); font-weight: 600; display: flex; align-items: center; gap: 9px; }
+.plan-card__price { font-size: var(--text-3xl); font-weight: 600; letter-spacing: -1.5px; margin: 12px 0 2px; font-variant-numeric: tabular-nums; }
+.plan-card__per { font-size: var(--text-sm); color: var(--text-3); }
+.plan-card__count { font-size: var(--text-sm); color: var(--text-2); margin-top: 4px; }
+.plan-feats { list-style: none; margin: 16px 0 0; padding: 16px 0 0; border-top: 1px solid var(--border-faint); display: flex; flex-direction: column; gap: 10px; }
+.plan-feats li { display: flex; align-items: center; gap: 9px; font-size: var(--text-sm); color: var(--text-2); }
+.plan-feats li svg { color: var(--success); flex-shrink: 0; }
+.plan-feats li.off { color: var(--text-3); }
+.plan-feats li.off svg { color: var(--text-3); opacity: .5; }
+
+.plan-matrix th, .plan-matrix td { text-align: center; }
+.plan-matrix th:first-child, .plan-matrix td:first-child { text-align: left; }
+.plan-matrix .yes { color: var(--success); }
+.plan-matrix .no { color: var(--border-strong); }
+
+/* ---- infra system cards ---- */
+.infra-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: var(--sp-4); }
+.infra-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); padding: var(--sp-5); }
+.infra-card__top { display: flex; align-items: center; gap: 11px; margin-bottom: 14px; }
+.infra-card__ico { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
+.infra-card__v { font-size: var(--text-2xl); font-weight: 600; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+.infra-card__v small { font-size: var(--text-md); color: var(--text-3); font-weight: 400; }
+
+/* ---- incidents / audit feed ---- */
+.incident { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-top: 1px solid var(--border-faint); }
+.incident:first-child { border-top: none; }
+.incident__dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.incident__b { flex: 1; min-width: 0; }
+.incident__t { font-size: var(--text-base); color: var(--text); font-weight: 500; }
+.incident__s { font-size: var(--text-sm); color: var(--text-3); margin-top: 1px; }
+
+.audit-feed { display: flex; flex-direction: column; }
+.audit-item { display: flex; gap: 13px; padding: 14px 0; border-top: 1px solid var(--border-faint); }
+.audit-item:first-child { border-top: none; }
+.audit-ico { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; }
+.audit-b { flex: 1; min-width: 0; }
+.audit-text { font-size: var(--text-base); color: var(--text); line-height: 1.4; }
+.audit-text b { font-weight: 600; }
+.audit-meta { font-size: var(--text-sm); color: var(--text-3); margin-top: 3px; display: flex; align-items: center; gap: 8px; }
+.audit-actor { font-weight: 500; color: var(--text-2); }
+
+/* ---- impersonation banner (shown inside the CUSTOMER app) ---- */
+.imp-banner {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 18px; background: linear-gradient(90deg, #5457D6, #6E70E8); color: #fff;
+  font-size: var(--text-sm); position: relative; z-index: 40;
+}
+.imp-banner__dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px rgba(255,255,255,.25); flex-shrink: 0; }
+.imp-banner b { font-weight: 600; }
+.imp-banner__back { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; border-radius: var(--r-pill); background: rgba(255,255,255,.16); color: #fff; font-weight: 600; cursor: pointer; transition: var(--transition); text-decoration: none; }
+.imp-banner__back:hover { background: rgba(255,255,255,.28); }
+
+/* detail meta header reuse */
+.acct-detail-head { display: flex; align-items: center; gap: 18px; margin-bottom: var(--sp-6); flex-wrap: wrap; }
+.acct-detail-head__logo { width: 64px; height: 64px; border-radius: 16px; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 22px; box-shadow: var(--shadow-md); flex-shrink: 0; }
+
+@media (max-width: 1100px) { .plan-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 860px)  { .plan-grid { grid-template-columns: 1fr; } }

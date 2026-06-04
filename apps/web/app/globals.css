@@ -1,0 +1,10 @@
+@import '@aidahos/ui/globals.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+}

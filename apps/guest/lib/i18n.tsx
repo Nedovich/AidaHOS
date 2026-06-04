@@ -1,0 +1,217 @@
+'use client';
+
+import { createContext, useContext } from 'react';
+
+export type Lang = 'en' | 'tr' | 'de' | 'ru';
+export type Loc = Partial<Record<Lang, string>> & { en: string };
+
+export const AIDA_LANGS: { code: Lang; label: string; flag: string }[] = [
+  { code: 'en', label: 'English', flag: 'EN' },
+  { code: 'tr', label: 'Türkçe', flag: 'TR' },
+  { code: 'de', label: 'Deutsch', flag: 'DE' },
+  { code: 'ru', label: 'Русский', flag: 'RU' },
+];
+
+type Dict = Record<string, string>;
+
+const en: Dict = {
+  nav_home: 'Home', nav_explore: 'Explore', nav_events: 'Events', nav_messages: 'Messages', nav_profile: 'Profile',
+  splash_tagline: 'Your stay, perfectly composed.', splash_enter: 'Enter',
+  login_welcome: 'Welcome', login_sub: 'Sign in to your stay', login_room: 'Room number', login_room_ph: 'e.g. 412',
+  login_birth: 'Date of birth', login_continue: 'Continue', login_help: 'Need help signing in?',
+  login_reception: 'Contact reception', login_privacy: 'Protected by AIDA. Your data stays private to your stay.',
+  login_lang: 'Language', login_signing: 'Opening your stay…',
+  g_morning: 'Good morning', g_afternoon: 'Good afternoon', g_evening: 'Good evening',
+  w_feels: 'Feels like', w_sea: 'Sea', w_wind: 'Wind', w_humidity: 'Humidity', w_sunny: 'Sunny', w_clear: 'Clear',
+  h_featured: 'Featured', h_quick: 'Quick actions', h_today: 'Today at the resort', h_dining: 'Dining for you',
+  h_spa: 'Spa & wellness', h_promos: 'Member offers', h_feedback_t: 'How is your stay so far?',
+  h_feedback_b: 'A moment of your time helps us perfect it.', h_share: 'Share feedback',
+  see_all: 'See all', view_all: 'View all',
+  qa_spa: 'Book spa', qa_dining: 'Dining', qa_events: 'Events', qa_reception: 'Reception',
+  b_book: 'Book', b_book_now: 'Book now', b_reserve: 'Reserve', b_reserve_table: 'Reserve a table',
+  b_join: 'Join', b_joined: 'Joined', b_add_cal: 'Add to calendar', b_added: 'Added', b_details: 'Details',
+  b_menu: 'View menu', b_confirm: 'Confirm', b_cancel: 'Cancel', b_back: 'Back', b_close: 'Close',
+  b_select_time: 'Select a time', b_continue: 'Continue', b_message: 'Message',
+  ex_title: 'Explore', ex_sub: 'Everything the resort has to offer',
+  ex_spa: 'Spa', ex_dining: 'Dining', ex_activities: 'Activities', ex_sports: 'Sports',
+  ex_facilities: 'Facilities', ex_services: 'Services',
+  ev_title: 'Events', ev_today: 'Today', ev_upcoming: 'Upcoming', ev_all: 'All',
+  ev_detail: 'Event details', ev_when: 'When', ev_where: 'Where', ev_about: 'About',
+  di_title: 'Dining', di_restaurants: 'Restaurants', di_bars: 'Bars', di_open: 'Open now',
+  di_closed: 'Closed', di_until: 'until', di_reserve_for: 'Reserve for', di_guests: 'guests',
+  di_time: 'Time', di_menu_hl: 'Menu highlights',
+  sp_title: 'Spa & Wellness', sp_treatments: 'Treatments', sp_packages: 'Packages',
+  sp_duration: 'Duration', sp_from: 'from', sp_choose: 'Choose a time', sp_book_t: 'Book treatment',
+  no_title: 'Messages', no_mark: 'Mark all read', no_today: 'Today', no_earlier: 'Earlier', no_empty: 'You’re all caught up',
+  su_title: 'How is your stay?', su_sub: 'Your thoughts shape every detail.', su_q_overall: 'Overall, how would you rate your stay?',
+  su_q_nps: 'How likely are you to recommend us?', su_unlikely: 'Not likely', su_likely: 'Very likely',
+  su_comments: 'Anything you’d like to share?', su_comments_ph: 'Tell us what made your stay special — or what we can improve.',
+  su_submit: 'Send feedback', su_thanks: 'Thank you', su_thanks_b: 'Your feedback has reached our team. We’re grateful.',
+  pr_room: 'Room', pr_stay: 'Your stay', pr_nights: 'nights', pr_checkout: 'Check-out',
+  pr_language: 'Language', pr_support: 'Support', pr_settings: 'Preferences', pr_loyalty: 'Member',
+  pr_signout: 'Sign out', pr_help: 'Help & contact', pr_concierge: 'AIDA Concierge', pr_soon: 'Coming soon',
+  m_today: 'Today', m_tonight: 'Tonight', m_min: 'min', m_per_person: 'per person', m_pp: 'pp',
+  m_at: 'at', m_free: 'Complimentary', m_request_sent: 'Request sent', m_confirmed: 'Confirmed',
+  h_today_act: 'Today’s activities', h_recommended: 'Recommended for you', h_concierge: 'Your concierge',
+  h_concierge_sub: 'Anything you need, a tap away', b_reserve_seat: 'Reserve your seat', b_explore: 'Explore',
+  ex_experiences: 'Experiences', ex_kids: 'Kids Club', ex_places: 'places', m_things: 'experiences',
+  h_evening_at: 'This evening', h_discover: 'Discover the resort', see_more: 'See more',
+};
+
+const tr: Dict = {
+  nav_home: 'Ana Sayfa', nav_explore: 'Keşfet', nav_events: 'Etkinlikler', nav_messages: 'Mesajlar', nav_profile: 'Profil',
+  splash_tagline: 'Tatiliniz, kusursuz bir uyumla.', splash_enter: 'Giriş',
+  login_welcome: 'Hoş geldiniz', login_sub: 'Konaklamanıza giriş yapın', login_room: 'Oda numarası', login_room_ph: 'örn. 412',
+  login_birth: 'Doğum tarihi', login_continue: 'Devam et', login_help: 'Giriş için yardım mı lazım?',
+  login_reception: 'Resepsiyonla iletişime geç', login_privacy: 'AIDA tarafından korunur. Verileriniz konaklamanıza özeldir.',
+  login_lang: 'Dil', login_signing: 'Konaklamanız açılıyor…',
+  g_morning: 'Günaydın', g_afternoon: 'İyi günler', g_evening: 'İyi akşamlar',
+  w_feels: 'Hissedilen', w_sea: 'Deniz', w_wind: 'Rüzgâr', w_humidity: 'Nem', w_sunny: 'Güneşli', w_clear: 'Açık',
+  h_featured: 'Öne çıkanlar', h_quick: 'Hızlı işlemler', h_today: 'Bugün resortta', h_dining: 'Size özel restoranlar',
+  h_spa: 'Spa & Wellness', h_promos: 'Üyeye özel fırsatlar', h_feedback_t: 'Konaklamanız nasıl geçiyor?',
+  h_feedback_b: 'Bir anınız, deneyiminizi mükemmelleştirmemize yardımcı olur.', h_share: 'Görüş bildir',
+  see_all: 'Tümü', view_all: 'Tümünü gör',
+  qa_spa: 'Spa randevusu', qa_dining: 'Yeme-içme', qa_events: 'Etkinlikler', qa_reception: 'Resepsiyon',
+  b_book: 'Rezerve et', b_book_now: 'Hemen rezerve et', b_reserve: 'Rezerve et', b_reserve_table: 'Masa ayırt',
+  b_join: 'Katıl', b_joined: 'Katıldın', b_add_cal: 'Takvime ekle', b_added: 'Eklendi', b_details: 'Detaylar',
+  b_menu: 'Menüyü gör', b_confirm: 'Onayla', b_cancel: 'Vazgeç', b_back: 'Geri', b_close: 'Kapat',
+  b_select_time: 'Saat seç', b_continue: 'Devam et', b_message: 'Mesaj gönder',
+  ex_title: 'Keşfet', ex_sub: 'Resortun sunduğu her şey',
+  ex_spa: 'Spa', ex_dining: 'Yeme-İçme', ex_activities: 'Aktiviteler', ex_sports: 'Spor',
+  ex_facilities: 'Tesisler', ex_services: 'Hizmetler',
+  ev_title: 'Etkinlikler', ev_today: 'Bugün', ev_upcoming: 'Yaklaşan', ev_all: 'Tümü',
+  ev_detail: 'Etkinlik detayı', ev_when: 'Ne zaman', ev_where: 'Nerede', ev_about: 'Hakkında',
+  di_title: 'Yeme-İçme', di_restaurants: 'Restoranlar', di_bars: 'Barlar', di_open: 'Şu an açık',
+  di_closed: 'Kapalı', di_until: 'kadar', di_reserve_for: 'Kişi sayısı', di_guests: 'kişi',
+  di_time: 'Saat', di_menu_hl: 'Menüden seçmeler',
+  sp_title: 'Spa & Wellness', sp_treatments: 'Bakımlar', sp_packages: 'Paketler',
+  sp_duration: 'Süre', sp_from: 'başlangıç', sp_choose: 'Saat seçin', sp_book_t: 'Bakımı rezerve et',
+  no_title: 'Mesajlar', no_mark: 'Tümünü okundu işaretle', no_today: 'Bugün', no_earlier: 'Önceki', no_empty: 'Her şey güncel',
+  su_title: 'Konaklamanız nasıl?', su_sub: 'Görüşleriniz her ayrıntıyı şekillendirir.', su_q_overall: 'Genel olarak konaklamanızı nasıl değerlendirirsiniz?',
+  su_q_nps: 'Bizi tavsiye etme olasılığınız nedir?', su_unlikely: 'Pek değil', su_likely: 'Kesinlikle',
+  su_comments: 'Paylaşmak istediğiniz bir şey var mı?', su_comments_ph: 'Konaklamanızı özel kılan ya da geliştirebileceğimiz şeyleri yazın.',
+  su_submit: 'Görüşü gönder', su_thanks: 'Teşekkürler', su_thanks_b: 'Görüşünüz ekibimize ulaştı. Minnettarız.',
+  pr_room: 'Oda', pr_stay: 'Konaklamanız', pr_nights: 'gece', pr_checkout: 'Çıkış',
+  pr_language: 'Dil', pr_support: 'Destek', pr_settings: 'Tercihler', pr_loyalty: 'Üye',
+  pr_signout: 'Çıkış yap', pr_help: 'Yardım & iletişim', pr_concierge: 'AIDA Concierge', pr_soon: 'Çok yakında',
+  m_today: 'Bugün', m_tonight: 'Bu gece', m_min: 'dk', m_per_person: 'kişi başı', m_pp: 'kişi',
+  m_at: '·', m_free: 'Ücretsiz', m_request_sent: 'Talep gönderildi', m_confirmed: 'Onaylandı',
+  h_today_act: 'Bugünün aktiviteleri', h_recommended: 'Size özel öneriler', h_concierge: 'Concierge’iniz',
+  h_concierge_sub: 'İhtiyacınız olan her şey bir dokunuş uzakta', b_reserve_seat: 'Yerinizi ayırtın', b_explore: 'Keşfet',
+  ex_experiences: 'Deneyimler', ex_kids: 'Çocuk Kulübü', ex_places: 'mekan', m_things: 'deneyim',
+  h_evening_at: 'Bu akşam', h_discover: 'Resortu keşfedin', see_more: 'Daha fazla',
+};
+
+const de: Dict = {
+  nav_home: 'Start', nav_explore: 'Entdecken', nav_events: 'Events', nav_messages: 'Nachrichten', nav_profile: 'Profil',
+  splash_tagline: 'Ihr Aufenthalt, perfekt komponiert.', splash_enter: 'Eintreten',
+  login_welcome: 'Willkommen', login_sub: 'Bei Ihrem Aufenthalt anmelden', login_room: 'Zimmernummer', login_room_ph: 'z. B. 412',
+  login_birth: 'Geburtsdatum', login_continue: 'Weiter', login_help: 'Hilfe bei der Anmeldung?',
+  login_reception: 'Rezeption kontaktieren', login_privacy: 'Geschützt von AIDA. Ihre Daten bleiben privat.',
+  login_lang: 'Sprache', login_signing: 'Ihr Aufenthalt wird geöffnet…',
+  g_morning: 'Guten Morgen', g_afternoon: 'Guten Tag', g_evening: 'Guten Abend',
+  w_feels: 'Gefühlt', w_sea: 'Meer', w_wind: 'Wind', w_humidity: 'Feuchte', w_sunny: 'Sonnig', w_clear: 'Klar',
+  h_featured: 'Empfohlen', h_quick: 'Schnellzugriff', h_today: 'Heute im Resort', h_dining: 'Restaurants für Sie',
+  h_spa: 'Spa & Wellness', h_promos: 'Member-Angebote', h_feedback_t: 'Wie ist Ihr Aufenthalt bisher?',
+  h_feedback_b: 'Ein kurzer Moment hilft uns, ihn perfekt zu machen.', h_share: 'Feedback geben',
+  see_all: 'Alle', view_all: 'Alle ansehen',
+  qa_spa: 'Spa buchen', qa_dining: 'Kulinarik', qa_events: 'Events', qa_reception: 'Rezeption',
+  b_book: 'Buchen', b_book_now: 'Jetzt buchen', b_reserve: 'Reservieren', b_reserve_table: 'Tisch reservieren',
+  b_join: 'Teilnehmen', b_joined: 'Dabei', b_add_cal: 'Zum Kalender', b_added: 'Hinzugefügt', b_details: 'Details',
+  b_menu: 'Menü ansehen', b_confirm: 'Bestätigen', b_cancel: 'Abbrechen', b_back: 'Zurück', b_close: 'Schließen',
+  b_select_time: 'Zeit wählen', b_continue: 'Weiter', b_message: 'Nachricht',
+  ex_title: 'Entdecken', ex_sub: 'Alles, was das Resort bietet',
+  ex_spa: 'Spa', ex_dining: 'Kulinarik', ex_activities: 'Aktivitäten', ex_sports: 'Sport',
+  ex_facilities: 'Einrichtungen', ex_services: 'Services',
+  ev_title: 'Events', ev_today: 'Heute', ev_upcoming: 'Demnächst', ev_all: 'Alle',
+  ev_detail: 'Event-Details', ev_when: 'Wann', ev_where: 'Wo', ev_about: 'Über',
+  di_title: 'Kulinarik', di_restaurants: 'Restaurants', di_bars: 'Bars', di_open: 'Jetzt geöffnet',
+  di_closed: 'Geschlossen', di_until: 'bis', di_reserve_for: 'Reservieren für', di_guests: 'Gäste',
+  di_time: 'Zeit', di_menu_hl: 'Menü-Highlights',
+  sp_title: 'Spa & Wellness', sp_treatments: 'Anwendungen', sp_packages: 'Pakete',
+  sp_duration: 'Dauer', sp_from: 'ab', sp_choose: 'Zeit wählen', sp_book_t: 'Anwendung buchen',
+  no_title: 'Nachrichten', no_mark: 'Alle als gelesen', no_today: 'Heute', no_earlier: 'Früher', no_empty: 'Alles erledigt',
+  su_title: 'Wie ist Ihr Aufenthalt?', su_sub: 'Ihre Meinung formt jedes Detail.', su_q_overall: 'Wie bewerten Sie Ihren Aufenthalt insgesamt?',
+  su_q_nps: 'Wie wahrscheinlich empfehlen Sie uns weiter?', su_unlikely: 'Unwahrscheinlich', su_likely: 'Sehr wahrscheinlich',
+  su_comments: 'Möchten Sie etwas teilen?', su_comments_ph: 'Was hat Ihren Aufenthalt besonders gemacht – oder was können wir verbessern?',
+  su_submit: 'Feedback senden', su_thanks: 'Vielen Dank', su_thanks_b: 'Ihr Feedback hat unser Team erreicht. Wir sind dankbar.',
+  pr_room: 'Zimmer', pr_stay: 'Ihr Aufenthalt', pr_nights: 'Nächte', pr_checkout: 'Abreise',
+  pr_language: 'Sprache', pr_support: 'Support', pr_settings: 'Einstellungen', pr_loyalty: 'Member',
+  pr_signout: 'Abmelden', pr_help: 'Hilfe & Kontakt', pr_concierge: 'AIDA Concierge', pr_soon: 'Demnächst',
+  m_today: 'Heute', m_tonight: 'Heute Abend', m_min: 'Min', m_per_person: 'pro Person', m_pp: 'p. P.',
+  m_at: '·', m_free: 'Inklusive', m_request_sent: 'Anfrage gesendet', m_confirmed: 'Bestätigt',
+  h_today_act: 'Heutige Aktivitäten', h_recommended: 'Für Sie empfohlen', h_concierge: 'Ihr Concierge',
+  h_concierge_sub: 'Alles, was Sie brauchen, einen Tipp entfernt', b_reserve_seat: 'Platz reservieren', b_explore: 'Entdecken',
+  ex_experiences: 'Erlebnisse', ex_kids: 'Kids Club', ex_places: 'Orte', m_things: 'Erlebnisse',
+  h_evening_at: 'Heute Abend', h_discover: 'Resort entdecken', see_more: 'Mehr',
+};
+
+const ru: Dict = {
+  nav_home: 'Главная', nav_explore: 'Обзор', nav_events: 'События', nav_messages: 'Сообщения', nav_profile: 'Профиль',
+  splash_tagline: 'Ваш отдых, безупречно продуман.', splash_enter: 'Войти',
+  login_welcome: 'Добро пожаловать', login_sub: 'Войдите в ваше пребывание', login_room: 'Номер комнаты', login_room_ph: 'напр. 412',
+  login_birth: 'Дата рождения', login_continue: 'Продолжить', login_help: 'Нужна помощь со входом?',
+  login_reception: 'Связаться с ресепшн', login_privacy: 'Защищено AIDA. Ваши данные остаются конфиденциальными.',
+  login_lang: 'Язык', login_signing: 'Открываем ваше пребывание…',
+  g_morning: 'Доброе утро', g_afternoon: 'Добрый день', g_evening: 'Добрый вечер',
+  w_feels: 'Ощущается', w_sea: 'Море', w_wind: 'Ветер', w_humidity: 'Влажность', w_sunny: 'Солнечно', w_clear: 'Ясно',
+  h_featured: 'Рекомендуем', h_quick: 'Быстрые действия', h_today: 'Сегодня в отеле', h_dining: 'Рестораны для вас',
+  h_spa: 'Спа и велнес', h_promos: 'Предложения для гостей', h_feedback_t: 'Как проходит ваш отдых?',
+  h_feedback_b: 'Минута вашего времени поможет нам сделать его идеальным.', h_share: 'Оставить отзыв',
+  see_all: 'Все', view_all: 'Смотреть все',
+  qa_spa: 'Записаться в спа', qa_dining: 'Рестораны', qa_events: 'События', qa_reception: 'Ресепшн',
+  b_book: 'Забронировать', b_book_now: 'Забронировать', b_reserve: 'Зарезервировать', b_reserve_table: 'Забронировать стол',
+  b_join: 'Участвовать', b_joined: 'Вы идёте', b_add_cal: 'В календарь', b_added: 'Добавлено', b_details: 'Подробнее',
+  b_menu: 'Смотреть меню', b_confirm: 'Подтвердить', b_cancel: 'Отмена', b_back: 'Назад', b_close: 'Закрыть',
+  b_select_time: 'Выбрать время', b_continue: 'Продолжить', b_message: 'Написать',
+  ex_title: 'Обзор', ex_sub: 'Всё, что предлагает курорт',
+  ex_spa: 'Спа', ex_dining: 'Рестораны', ex_activities: 'Активности', ex_sports: 'Спорт',
+  ex_facilities: 'Услуги', ex_services: 'Сервис',
+  ev_title: 'События', ev_today: 'Сегодня', ev_upcoming: 'Скоро', ev_all: 'Все',
+  ev_detail: 'О событии', ev_when: 'Когда', ev_where: 'Где', ev_about: 'Описание',
+  di_title: 'Рестораны', di_restaurants: 'Рестораны', di_bars: 'Бары', di_open: 'Открыто',
+  di_closed: 'Закрыто', di_until: 'до', di_reserve_for: 'Бронь на', di_guests: 'гостей',
+  di_time: 'Время', di_menu_hl: 'Из меню',
+  sp_title: 'Спа и велнес', sp_treatments: 'Процедуры', sp_packages: 'Пакеты',
+  sp_duration: 'Длительность', sp_from: 'от', sp_choose: 'Выберите время', sp_book_t: 'Записаться',
+  no_title: 'Сообщения', no_mark: 'Прочитать все', no_today: 'Сегодня', no_earlier: 'Ранее', no_empty: 'Всё прочитано',
+  su_title: 'Как ваш отдых?', su_sub: 'Ваше мнение формирует каждую деталь.', su_q_overall: 'Как вы оцениваете ваш отдых в целом?',
+  su_q_nps: 'Насколько вероятно, что вы порекомендуете нас?', su_unlikely: 'Маловероятно', su_likely: 'Очень вероятно',
+  su_comments: 'Хотите чем-то поделиться?', su_comments_ph: 'Расскажите, что сделало ваш отдых особенным — или что мы можем улучшить.',
+  su_submit: 'Отправить отзыв', su_thanks: 'Спасибо', su_thanks_b: 'Ваш отзыв получен нашей командой. Мы признательны.',
+  pr_room: 'Номер', pr_stay: 'Ваше пребывание', pr_nights: 'ночей', pr_checkout: 'Выезд',
+  pr_language: 'Язык', pr_support: 'Поддержка', pr_settings: 'Настройки', pr_loyalty: 'Гость',
+  pr_signout: 'Выйти', pr_help: 'Помощь и контакты', pr_concierge: 'AIDA Consierge', pr_soon: 'Скоро',
+  m_today: 'Сегодня', m_tonight: 'Сегодня вечером', m_min: 'мин', m_per_person: 'за человека', m_pp: 'чел.',
+  m_at: '·', m_free: 'Бесплатно', m_request_sent: 'Запрос отправлен', m_confirmed: 'Подтверждено',
+  h_today_act: 'Сегодняшние активности', h_recommended: 'Рекомендуем вам', h_concierge: 'Ваш консьерж',
+  h_concierge_sub: 'Всё, что нужно, в одно касание', b_reserve_seat: 'Забронировать место', b_explore: 'Обзор',
+  ex_experiences: 'Впечатления', ex_kids: 'Детский клуб', ex_places: 'мест', m_things: 'впечатлений',
+  h_evening_at: 'Сегодня вечером', h_discover: 'Откройте курорт', see_more: 'Ещё',
+};
+
+export const AIDA_I18N: Record<Lang, Dict> = { en, tr, de, ru };
+
+export function makeT(lang: Lang) {
+  const dict = AIDA_I18N[lang] ?? en;
+  return (key: string): string => dict[key] ?? en[key] ?? key;
+}
+
+/** Pick a localized field from a {en,tr,de,ru} object. */
+export function L(obj: Loc | string | null | undefined, lang: Lang): string {
+  if (obj == null) return '';
+  if (typeof obj === 'string') return obj;
+  return obj[lang] ?? obj.en ?? '';
+}
+
+export interface LangValue {
+  lang: Lang;
+  t: (key: string) => string;
+  setLang: (l: Lang) => void;
+}
+export const LangCtx = createContext<LangValue | null>(null);
+export const useLang = (): LangValue => {
+  const v = useContext(LangCtx);
+  if (!v) throw new Error('useLang must be used within LangCtx');
+  return v;
+};

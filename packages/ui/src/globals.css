@@ -1,0 +1,45 @@
+/* ============================================================
+   AIDA shared design tokens. Imported by apps/web & apps/guest.
+   Light/dark via [data-theme]; guest portal overrides --brand-* per hotel.
+   ============================================================ */
+:root {
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Inter', system-ui, sans-serif;
+
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-2: #f2f4f7;
+  --border: #e4e7ec;
+  --text: #101828;
+  --text-3: #667085;
+
+  /* admin accent (teal/cyan) */
+  --brand-primary: #0e7490;
+  --brand-primary-fg: #ffffff;
+  --brand-secondary: #0891b2;
+
+  --success: #2f9e6e;
+  --warning: #c98a2b;
+  --danger: #d0584f;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+}
+
+[data-theme='dark'] {
+  --bg: #0c111d;
+  --surface: #141b2b;
+  --surface-2: #1c2536;
+  --border: #283142;
+  --text: #f2f4f7;
+  --text-3: #98a2b3;
+}
+
+/* Guest portal warm theme — terracotta + sea-green (overridable per hotel). */
+.aida-guest {
+  --brand-primary: #b8542e;
+  --brand-primary-fg: #ffffff;
+  --brand-secondary: #3a8a72;
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+}

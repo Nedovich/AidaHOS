@@ -1,0 +1,57 @@
+# Local full-stack bring-up. From repo root:
+#   docker compose -f infra/docker/docker-compose.yml up --build
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aidahos
+      POSTGRES_PASSWORD: aidahos
+      POSTGRES_DB: aidahos
+    ports:
+      - '5432:5432'
+    volumes:
+      - aidahos_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U aidahos']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/web.Dockerfile
+    environment:
+      DATABASE_URL: postgres://aidahos:aidahos@postgres:5432/aidahos
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-secret-change-me-32-chars}
+      BETTER_AUTH_URL: http://localhost:3000
+      API_BASE_URL: http://api:8000
+      API_SERVICE_TOKEN: ${API_SERVICE_TOKEN:-change-me-shared-hmac-secret}
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  guest:
+    build:
+      context: ../..
+      dockerfile: infra/docker/guest.Dockerfile
+    environment:
+      NEXT_PUBLIC_GUEST_DEFAULT_HOTEL: demo
+    ports:
+      - '3001:3001'
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    environment:
+      APP_ENV: production
+      SERVICE_TOKEN: ${API_SERVICE_TOKEN:-change-me-shared-hmac-secret}
+      # TAILSCALE_AUTHKEY: set in Coolify to join the tailnet
+    ports:
+      - '8000:8000'
+
+volumes:
+  aidahos_pg:
