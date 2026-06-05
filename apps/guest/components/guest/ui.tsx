@@ -139,17 +139,11 @@ export function BottomNav({ active, onNav, unread = 0 }: { active: string; onNav
   );
 }
 
-export function StatusBar({ light = false }: { light?: boolean }) {
-  const c = light ? '#fff' : 'var(--ink)';
-  return (
-    <div style={{ height: 46, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 26px 0 30px', flexShrink: 0, position: 'relative', zIndex: 5 }}>
-      <span style={{ fontSize: 14.5, fontWeight: 700, color: c, letterSpacing: '.02em' }}>9:41</span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: c }}>
-        <svg width="18" height="12" viewBox="0 0 18 12" fill={c}><rect x="0" y="7" width="3" height="5" rx="1" /><rect x="5" y="4.5" width="3" height="7.5" rx="1" /><rect x="10" y="2" width="3" height="10" rx="1" opacity=".4" /><rect x="15" y="0" width="3" height="12" rx="1" opacity=".4" /></svg>
-        <svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x="1" y="1" width="21" height="10" rx="3" stroke={c} strokeOpacity=".5" /><rect x="2.5" y="2.5" width="16" height="7" rx="1.5" fill={c} /><rect x="23" y="4" width="2" height="4" rx="1" fill={c} fillOpacity=".6" /></svg>
-      </div>
-    </div>
-  );
+// Real phones / the captive browser already show their own status bar (time, signal,
+// battery), so the in-app mock status bar would be a redundant double bar. Render a
+// thin spacer instead to preserve top breathing room.
+export function StatusBar(_props: { light?: boolean }) {
+  return <div style={{ height: 12, flexShrink: 0 }} />;
 }
 
 export function LangSwitch({ light = false, compact = false }: { light?: boolean; compact?: boolean }) {

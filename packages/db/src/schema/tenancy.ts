@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { pmsType, tenantStatus } from './enums';
 
 // NOTE: RLS for these tenant tables is NOT defined here — drizzle-kit push does not
@@ -12,6 +12,17 @@ export const hotelGroups = pgTable('hotel_groups', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   status: tenantStatus('status').notNull().default('active'),
+
+  // Display / billing metadata (shown on the Accounts cards & detail)
+  ownerName: text('owner_name'),
+  ownerEmail: text('owner_email'),
+  region: text('region'),
+  plan: text('plan').notNull().default('scale'),
+  mrr: integer('mrr').notNull().default(0),
+  aiUsed: integer('ai_used').notNull().default(0),
+  aiLimit: integer('ai_limit').notNull().default(100000),
+  color: text('color').notNull().default('#5457D6'),
+
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -30,6 +41,12 @@ export const hotels = pgTable('hotels', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   status: tenantStatus('status').notNull().default('trial'),
+
+  // Display metadata (Hotels list & detail)
+  region: text('region'),
+  rooms: integer('rooms').notNull().default(0),
+  guestsOnline: integer('guests_online').notNull().default(0),
+  color: text('color').notNull().default('#2F6E78'),
 
   // PMS / on-prem
   pmsType: pmsType('pms_type').notNull().default('none'),

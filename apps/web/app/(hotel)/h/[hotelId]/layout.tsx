@@ -1,10 +1,15 @@
 import { redirect } from 'next/navigation';
 import '@/styles/console/tokens.css';
 import '@/styles/console/app.css';
+import '@/styles/console/ops.css';
+import '@/styles/console/forms.css';
 import { getHotelById } from '@aidahos/db';
 import { canAccessHotel, getSession } from '@/lib/auth';
+import { getLang } from '@/lib/i18n-server';
+import { L } from '@/lib/i18n';
 import { HotelSidebar } from '@/components/console/hotel-sidebar';
 import { ConsoleHeader } from '@/components/console/console-header';
+import { LangProvider } from '@/components/console/lang-provider';
 
 function initialsOf(name: string) {
   return (
@@ -34,23 +39,29 @@ export default async function HotelLayout({
   if (!hotel) redirect('/no-hotel');
   if (!(await canAccessHotel(hotel.id, hotel.hotelGroupId))) redirect('/no-hotel');
 
+  const lang = await getLang();
   const name = session.user.name ?? 'Yönetici';
-  const roleLabel = session.user.role === 'admin' ? 'Grup Yöneticisi' : 'Otel Yöneticisi';
+  const roleLabel =
+    session.user.role === 'admin'
+      ? L(['Grup Yöneticisi', 'Group Manager'], lang)
+      : L(['Otel Yöneticisi', 'Hotel Manager'], lang);
 
   return (
-    <div className="app">
-      <HotelSidebar hotelId={hotel.id} hotelName={hotel.name} sub={roleLabel} />
-      <div className="main">
-        <ConsoleHeader
-          initials={initialsOf(name)}
-          crumb="AIDA Cloud"
-          title={hotel.name}
-          searchPlaceholder="Misafir, oda, içerik ara…"
-        />
-        <div className="content">
-          <div className="content__inner">{children}</div>
+    <LangProvider initial={lang}>
+      <div className="app">
+        <HotelSidebar hotelId={hotel.id} hotelName={hotel.name} sub={roleLabel} isAdmin={session.user.role === 'admin'} />
+        <div className="main">
+          <ConsoleHeader
+            initials={initialsOf(name)}
+            crumb="AIDA Cloud"
+            title={hotel.name}
+            search={L(['Misafir, oda, içerik ara…', 'Search guests, rooms, content…'], lang)}
+          />
+          <div className="content">
+            <div className="content__inner">{children}</div>
+          </div>
         </div>
       </div>
-    </div>
+    </LangProvider>
   );
 }

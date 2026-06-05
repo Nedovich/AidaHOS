@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { L, useLang } from '@/lib/i18n';
 import {
   AIDA_DINING, AIDA_EVENTS, AIDA_EXPERIENCES, AIDA_SPA, AIDA_TONIGHT, AIDA_WEATHER, IMG, PH,
@@ -53,13 +53,55 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function Login({ brand, onLogin }: { brand: Brand; onLogin: () => void }) {
-  const { t } = useLang();
+type LoginFn = (room: string, dob: string) => Promise<{ ok: boolean; error?: string; username?: string }>;
+interface MikrotikPortal { loginUrl: string; orig: string; mac: string }
+
+export function Login({ brand, onLogin, loginAction, portal, hotelSlug }: { brand: Brand; onLogin: () => void; loginAction?: LoginFn; portal?: MikrotikPortal | null; hotelSlug?: string }) {
+  const { t, lang } = useLang();
   const [room, setRoom] = useState('');
   const [dob, setDob] = useState('');
   const [loading, setLoading] = useState(false);
-  const valid = room.trim().length >= 2 && dob.trim().length >= 4;
-  const submit = () => { if (!valid) return; setLoading(true); setTimeout(onLogin, 1100); };
+  const [err, setErr] = useState<string | null>(null);
+  const valid = room.trim().length >= 1 && dob.replace(/\D/g, '').length === 8;
+  const submit = async () => {
+    if (!valid || loading) return;
+    setErr(null);
+    setLoading(true);
+    try {
+      if (loginAction) {
+        const birth = dob.replace(/\D/g, '');
+        const res = await loginAction(room.trim(), birth);
+        if (res.ok) {
+          // Captive portal: hand the credentials to the MikroTik gateway so the
+          // client actually gets online, then bounce back to the app (with internet).
+          if (portal?.loginUrl && res.username) {
+            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+            const dst = `${origin}/${hotelSlug ?? ''}?connected=1`;
+            const u = `${portal.loginUrl}?username=${encodeURIComponent(res.username)}&password=${encodeURIComponent(birth)}&dst=${encodeURIComponent(dst)}`;
+            window.location.href = u; // top-level nav (https→http allowed; not mixed content)
+            return;
+          }
+          onLogin();
+          return;
+        }
+        setErr(
+          res.error === 'not_found'
+            ? L({ en: 'Hotel not found.', tr: 'Otel bulunamadı.', de: 'Hotel nicht gefunden.', ru: 'Отель не найден.' }, lang)
+            : res.error === 'provisioning'
+              ? L({ en: 'Could not connect you. Please try again.', tr: 'Bağlanılamadı. Lütfen tekrar deneyin.', de: 'Verbindung fehlgeschlagen. Bitte erneut versuchen.', ru: 'Не удалось подключить. Повторите попытку.' }, lang)
+              : L({ en: 'Room number or birth date is incorrect.', tr: 'Oda numarası veya doğum tarihi hatalı.', de: 'Zimmernummer oder Geburtsdatum ist falsch.', ru: 'Неверный номер комнаты или дата рождения.' }, lang),
+        );
+      } else {
+        // No backend bound (static preview) — fall back to the visual mock flow.
+        await new Promise((r) => setTimeout(r, 900));
+        onLogin();
+      }
+    } catch {
+      setErr(L({ en: 'Something went wrong. Please try again.', tr: 'Bir hata oluştu. Lütfen tekrar deneyin.', de: 'Etwas ist schiefgelaufen.', ru: 'Произошла ошибка.' }, lang));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
@@ -85,8 +127,22 @@ export function Login({ brand, onLogin }: { brand: Brand; onLogin: () => void })
           <input value={room} onChange={(e) => setRoom(e.target.value)} placeholder={t('login_room_ph')} inputMode="numeric" style={inputStyle} />
         </Field>
         <Field label={t('login_birth')}>
-          <input value={dob} onChange={(e) => setDob(e.target.value)} placeholder="DD / MM / YYYY" style={inputStyle} />
+          <input
+            value={dob}
+            onChange={(e) => setDob(e.target.value.replace(/\D/g, '').slice(0, 8))}
+            placeholder={L({ en: 'DDMMYYYY', tr: 'GGAAYYYY', de: 'TTMMJJJJ', ru: 'ДДММГГГГ' }, lang)}
+            inputMode="numeric"
+            maxLength={8}
+            style={inputStyle}
+          />
         </Field>
+
+        {err && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, padding: '11px 14px', borderRadius: 'var(--r-md)', background: 'color-mix(in srgb, var(--danger, #d4524a) 12%, var(--surface))', border: '1px solid color-mix(in srgb, var(--danger, #d4524a) 35%, transparent)' }}>
+            <Icon name="shield" size={16} color="var(--danger, #d4524a)" style={{ flexShrink: 0 }} />
+            <span className="t-caption" style={{ margin: 0, color: 'var(--danger, #d4524a)', fontWeight: 600 }}>{err}</span>
+          </div>
+        )}
 
         <Button variant="primary" block disabled={!valid || loading} onClick={submit} style={{ marginTop: 8, padding: '16px' }}>
           {loading ? t('login_signing') : t('login_continue')}
@@ -107,8 +163,13 @@ export function Login({ brand, onLogin }: { brand: Brand; onLogin: () => void })
 /* ---------------- Home ---------------- */
 function GreetingHeader({ guest, onProfile }: { guest: typeof import('@/lib/data').AIDA_GUEST; onProfile: () => void }) {
   const { t, lang } = useLang();
-  const hr = new Date().getHours();
-  const greet = hr < 12 ? 'g_morning' : hr < 18 ? 'g_afternoon' : 'g_evening';
+  // Compute the time-of-day greeting on the client only — the server (UTC) and the
+  // guest's device can be in different hours, which would cause a hydration mismatch.
+  const [greet, setGreet] = useState('g_morning');
+  useEffect(() => {
+    const hr = new Date().getHours();
+    setGreet(hr < 12 ? 'g_morning' : hr < 18 ? 'g_afternoon' : 'g_evening');
+  }, []);
   const first = guest.name.split(' ')[0];
   return (
     <div style={{ padding: '6px 22px 20px' }}>

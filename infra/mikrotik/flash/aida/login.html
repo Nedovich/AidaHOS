@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connecting</title>
+<script type="text/javascript">
+var PORTAL = "https://rev-blake-content-equipment.trycloudflare.com/esken-bodrum";
+var ll = '$(link-login-only)';
+var orig = '$(link-orig)';
+var mac = '$(mac)';
+var url = PORTAL + "?ll=" + encodeURIComponent(ll) + "&orig=" + encodeURIComponent(orig) + "&mac=" + encodeURIComponent(mac);
+window.location.href = url;
+</script>
+</head>
+<body style="font-family:sans-serif;text-align:center;padding-top:60px;color:#444">
+<p>Connecting...</p>
+<p><a id="m" href="#">Continue</a></p>
+<script>document.getElementById('m').href = url;</script>
+</body>
+</html>

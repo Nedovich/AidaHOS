@@ -1,4 +1,6 @@
 import { getSession } from '@/lib/auth';
+import { getLang } from '@/lib/i18n-server';
+import { L } from '@/lib/i18n';
 import { stopImpersonate } from '@/app/(super)/actions';
 
 /** Shown app-wide while a super_admin is impersonating another user. */
@@ -6,6 +8,7 @@ export async function ImpersonationBanner() {
   const session = await getSession();
   const impersonatedBy = session?.session?.impersonatedBy;
   if (!impersonatedBy) return null;
+  const lang = await getLang();
 
   return (
     <div
@@ -31,7 +34,8 @@ export async function ImpersonationBanner() {
         }}
       />
       <span>
-        Kullanıcı taklidi aktif — <b>{session?.user?.email}</b> olarak görüntülüyorsunuz.
+        {L(['Kullanıcı taklidi aktif —', 'Impersonation active —'], lang)} <b>{session?.user?.email}</b>{' '}
+        {L(['olarak görüntülüyorsunuz.', 'view.'], lang)}
       </span>
       <form action={stopImpersonate} style={{ marginLeft: 'auto' }}>
         <button
@@ -49,7 +53,7 @@ export async function ImpersonationBanner() {
             cursor: 'pointer',
           }}
         >
-          Taklidi bitir
+          {L(['Taklidi bitir', 'Stop impersonating'], lang)}
         </button>
       </form>
     </div>

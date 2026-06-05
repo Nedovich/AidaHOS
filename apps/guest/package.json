@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aidahos/db": "workspace:*",
     "@aidahos/i18n": "workspace:*",
     "@aidahos/ui": "workspace:*",
     "next": "^15.1.3",

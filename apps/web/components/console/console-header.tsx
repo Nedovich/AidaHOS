@@ -1,19 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bell, Moon, Search, Sun } from 'lucide-react';
+import { L, type Lang } from '@/lib/i18n';
+import { setLangCookie, useLang } from './lang-provider';
 
 export function ConsoleHeader({
   initials,
-  crumb = 'AIDA Operations',
-  title = 'Süper Yönetici',
-  searchPlaceholder = 'Hesap, otel, kullanıcı ara…',
+  crumb,
+  title,
+  search,
 }: {
   initials: string;
-  crumb?: string;
-  title?: string;
-  searchPlaceholder?: string;
+  crumb: string;
+  title: string;
+  search?: string;
 }) {
+  const router = useRouter();
+  const lang = useLang();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
@@ -22,10 +27,16 @@ export function ConsoleHeader({
     document.documentElement.setAttribute('data-theme', t);
   }, []);
 
-  const apply = (t: 'light' | 'dark') => {
+  const applyTheme = (t: 'light' | 'dark') => {
     setTheme(t);
     localStorage.setItem('aida-theme', t);
     document.documentElement.setAttribute('data-theme', t);
+  };
+
+  const applyLang = (l: Lang) => {
+    if (l === lang) return;
+    setLangCookie(l);
+    router.refresh();
   };
 
   return (
@@ -39,17 +50,27 @@ export function ConsoleHeader({
         <span style={{ display: 'flex' }}>
           <Search size={16} />
         </span>
-        <input placeholder={searchPlaceholder} />
-        <span className="search__kbd">⌘K</span>
+        <input placeholder={search ?? L(['Hesap, otel, kullanıcı ara…', 'Search accounts, hotels, users…'], lang)} />
       </label>
+
+      <div className="seg" id="langSeg">
+        <button className={lang === 'tr' ? 'on' : ''} onClick={() => applyLang('tr')}>
+          TR
+        </button>
+        <button className={lang === 'en' ? 'on' : ''} onClick={() => applyLang('en')}>
+          EN
+        </button>
+      </div>
+
       <div className="seg">
-        <button className={theme === 'light' ? 'on' : ''} onClick={() => apply('light')}>
+        <button className={theme === 'light' ? 'on' : ''} onClick={() => applyTheme('light')}>
           <Sun size={16} />
         </button>
-        <button className={theme === 'dark' ? 'on' : ''} onClick={() => apply('dark')}>
+        <button className={theme === 'dark' ? 'on' : ''} onClick={() => applyTheme('dark')}>
           <Moon size={16} />
         </button>
       </div>
+
       <button className="icon-btn">
         <Bell size={18} />
         <span className="dot" />

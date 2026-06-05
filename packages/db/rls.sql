@@ -50,3 +50,13 @@ create policy hotels_rls on hotels
 
 -- Phase 1+ extends RLS to memberships, audit_logs, and every module table
 -- (each carries hotel_id / hotel_group_id). Keep the same predicate shape.
+
+-- ---- hotel_simulation (DEV PMS stand-in) ----
+-- No RLS: the guest captive portal reads it without an authenticated session,
+-- scoped explicitly by hotel_id in the query. New tables are owned by the migration
+-- role, so grant the least-privilege runtime role access here (owner runs this file).
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'aidahos_app') then
+    grant select, insert, update, delete on hotel_simulation to aidahos_app;
+  end if;
+end $$;

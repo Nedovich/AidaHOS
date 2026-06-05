@@ -46,14 +46,42 @@ function ReceptionSheet({ open, onClose }: { open: boolean; onClose: () => void 
 
 type SheetState = { type: null | 'reception' | 'event' | 'dining' | 'spa'; item?: unknown };
 
-function AppInner() {
-  const [stage, setStage] = useState<'splash' | 'login' | 'app'>('splash');
+export type LoginFn = (room: string, dob: string) => Promise<{ ok: boolean; error?: string; username?: string }>;
+
+export interface MikrotikPortal {
+  loginUrl: string;
+  orig: string;
+  mac: string;
+}
+
+export interface GuestSession {
+  room: string | null;
+  name: string | null;
+  checkIn: string | null;
+  checkOut: string | null;
+}
+
+export interface GuestAppProps {
+  hotelSlug?: string;
+  hotelName?: string | null;
+  loginAction?: LoginFn;
+  portal?: MikrotikPortal | null;
+  startInApp?: boolean;
+  session?: GuestSession | null;
+}
+
+function AppInner({ loginAction, portal, hotelSlug, startInApp, session }: { loginAction?: LoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; startInApp?: boolean; session?: GuestSession | null }) {
+  const [stage, setStage] = useState<'splash' | 'login' | 'app'>(startInApp ? 'app' : 'splash');
   const [tab, setTab] = useState('home');
   const [stack, setStack] = useState<string[]>([]);
   const [joined, setJoined] = useState<Set<string>>(new Set());
   const [sheet, setSheet] = useState<SheetState>({ type: null });
 
   const brand = AIDA_BRANDS.aida!;
+  // Real guest from the persisted session (room + name); other fields stay mock for now.
+  const guest = session
+    ? { ...AIDA_GUEST, name: session.name || AIDA_GUEST.name, initials: (session.name || AIDA_GUEST.name).split(' ').map((s) => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase(), room: session.room || AIDA_GUEST.room }
+    : AIDA_GUEST;
   const toggleJoin = (ev: AidaEvent) =>
     setJoined((p) => { const n = new Set(p); n.has(ev.id) ? n.delete(ev.id) : n.add(ev.id); return n; });
 
@@ -67,7 +95,7 @@ function AppInner() {
     switch (tab) {
       case 'home':
         return (
-          <Home guest={AIDA_GUEST} joined={joined} onJoin={toggleJoin} onNav={navTo}
+          <Home guest={guest} joined={joined} onJoin={toggleJoin} onNav={navTo}
             onOpenEvent={(e) => setSheet({ type: 'event', item: e })}
             onOpenDining={(d) => setSheet({ type: 'dining', item: d })}
             onOpenSpa={(s) => setSheet({ type: 'spa', item: s })}
@@ -90,7 +118,7 @@ function AppInner() {
     <div className="aida-app" data-mode="day"
       style={{ '--brand-primary': brand.primary, '--brand-primary-700': brand.primary700, '--brand-secondary': brand.secondary, '--brand-accent': brand.accent, position: 'absolute', inset: 0, overflow: 'hidden', background: 'var(--bg)' } as CSSProperties}>
       {stage === 'splash' && <Splash brand={brand} onEnter={() => setStage('login')} />}
-      {stage === 'login' && <Login brand={brand} onLogin={() => { setStage('app'); setTab('home'); }} />}
+      {stage === 'login' && <Login brand={brand} loginAction={loginAction} portal={portal} hotelSlug={hotelSlug} onLogin={() => { setStage('app'); setTab('home'); }} />}
       {stage === 'app' && (
         <>
           <div style={{ position: 'absolute', inset: 0 }}>{renderScreen()}</div>
@@ -102,7 +130,7 @@ function AppInner() {
   );
 }
 
-export function GuestApp() {
+export function GuestApp({ loginAction, portal, hotelSlug, startInApp, session }: GuestAppProps = {}) {
   const [lang, setLangState] = useState<Lang>('en');
   useEffect(() => {
     const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('aida_lang')) as Lang | null;
@@ -114,7 +142,7 @@ export function GuestApp() {
   return (
     <LangCtx.Provider value={value}>
       <div style={{ position: 'relative', width: '100%', maxWidth: 440, height: '100dvh', margin: '0 auto', overflow: 'hidden', background: 'var(--bg)', boxShadow: '0 0 80px -20px rgba(40,25,12,.25)' }}>
-        <AppInner />
+        <AppInner loginAction={loginAction} portal={portal} hotelSlug={hotelSlug} startInApp={startInApp} session={session} />
       </div>
     </LangCtx.Provider>
   );

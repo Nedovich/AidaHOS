@@ -1,0 +1,57 @@
+/* ============================================================
+   AIDA Operations — form + list helpers
+   Extracted from the design (portal.css / settings.css / app.css / survey.css)
+   so the console new/edit forms and list views match the prototype.
+   ============================================================ */
+
+/* ---- inputs ---- */
+.pb-input, .pb-area, .pb-select {
+  width: 100%; border: 1px solid var(--border); background: var(--surface-2);
+  border-radius: var(--r-md); font-family: inherit; font-size: var(--text-base);
+  color: var(--text); padding: 9px 12px; transition: var(--transition);
+}
+.pb-input:hover, .pb-area:hover, .pb-select:hover { border-color: var(--border-strong); }
+.pb-input:focus, .pb-area:focus, .pb-select:focus {
+  outline: none; border-color: var(--accent); box-shadow: var(--ring); background: var(--surface);
+}
+.pb-area { min-height: 88px; resize: vertical; line-height: 1.5; }
+.pb-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238997A0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat; background-position: right 11px center; padding-right: 34px; cursor: pointer;
+}
+.pb-sw { width: 40px; height: 23px; border-radius: 99px; background: var(--surface-3); border: 1px solid var(--border); position: relative; flex-shrink: 0; transition: var(--transition); cursor: pointer; }
+.pb-sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 99px; background: #fff; box-shadow: var(--shadow-sm); transition: var(--transition); }
+.pb-sw.on { background: var(--accent); border-color: var(--accent); }
+.pb-sw.on::after { left: 19px; }
+
+/* ---- settings sections (used for forms) ---- */
+.set-sec { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); margin-bottom: var(--sp-5); }
+.set-sec__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); padding: var(--sp-5) var(--sp-5) 0; }
+.set-sec__title { font-size: var(--text-md); font-weight: 600; color: var(--text); }
+.set-sec__sub { font-size: var(--text-sm); color: var(--text-3); margin-top: 2px; line-height: 1.45; }
+.set-sec__body { padding: 11px var(--sp-5) var(--sp-5); }
+.set-sec__foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--border-faint); background: var(--surface-2); border-radius: 0 0 var(--r-lg) var(--r-lg); }
+.set-sec__foot .set-foot__note { margin-right: auto; font-size: var(--text-sm); color: var(--text-3); }
+
+.set-row { display: grid; grid-template-columns: 248px 1fr; gap: var(--sp-6); padding: var(--sp-4) 0; border-top: 1px solid var(--border-faint); align-items: start; }
+.set-row:first-child { border-top: none; padding-top: 14px; }
+.set-row--center { align-items: center; }
+.set-row__lbl { font-size: var(--text-base); font-weight: 600; color: var(--text); }
+.set-row__desc { font-size: var(--text-sm); color: var(--text-3); margin-top: 3px; line-height: 1.45; }
+.set-row__c { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.set-row__c--inline { flex-direction: row; align-items: center; gap: 11px; flex-wrap: wrap; }
+.set-pill { display: inline-flex; align-items: center; gap: 5px; font-size: var(--text-xs); font-weight: 600; padding: 3px 9px; border-radius: var(--r-pill); }
+
+@media (max-width: 760px) { .set-row { grid-template-columns: 1fr; gap: var(--sp-2); } }
+
+/* ---- list helpers ---- */
+.cell-sub { font-size: var(--text-xs); color: var(--text-3); }
+.chip__n { font-size: var(--text-xs); opacity: .8; font-variant-numeric: tabular-nums; margin-left: 5px; }
+.minibar { height: 6px; border-radius: 99px; background: var(--surface-3); overflow: hidden; width: 100%; }
+.minibar__f { height: 100%; border-radius: 99px; }
+.empty { text-align: center; padding: var(--sp-12) var(--sp-6); }
+.rowact { display: inline-flex; gap: 4px; }
+.rowact button, .rowact a { width: 30px; height: 30px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--text-3); display: grid; place-items: center; transition: var(--transition); cursor: pointer; }
+.rowact button:hover, .rowact a:hover { background: var(--surface-3); color: var(--text); }
+.rowact svg { width: 15px; height: 15px; }
