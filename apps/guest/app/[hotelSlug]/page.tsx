@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { findHotelBySlug } from '@aidahos/db';
 import { GuestApp, type GuestSession } from '@/components/guest/guest-app';
+import { CaptivePostLogin } from '@/components/captive-post-login';
 import { GUEST_COOKIE } from '@/lib/constants';
 import { defaultSurveyOffer } from '@/lib/survey-offer';
 import { loginGuest } from './actions';
@@ -44,11 +45,23 @@ export default async function GuestHome({
     session = null;
   }
 
-  // On the post-login return (?connected=1), offer the hotel's default survey before
-  // the portal — unless this guest already answered it this stay.
-  let surveyOffer = null;
-  if (connected && session?.room && hotel) {
-    surveyOffer = await defaultSurveyOffer(hotel.id, session.room, session.checkIn);
+  const lang = (await cookies()).get('aida-lang')?.value === 'tr' ? 'tr' : 'en';
+
+  // On the post-login captive return (?connected=1) we are INSIDE the OS captive
+  // mini-browser, which can't run the heavy portal SPA (SurveyJS + Home) — it throws a
+  // client-side exception. Show a lightweight "connected" screen instead; the full portal
+  // + survey open in the guest's real browser (now that internet is granted).
+  if (connected) {
+    const surveyOffer = session?.room && hotel ? await defaultSurveyOffer(hotel.id, session.room, session.checkIn) : null;
+    return (
+      <CaptivePostLogin
+        hotelName={hotel?.name ?? null}
+        hotelSlug={hotelSlug}
+        guestName={session?.name ?? null}
+        surveyOffer={surveyOffer}
+        lang={lang}
+      />
+    );
   }
 
   return (
@@ -57,9 +70,9 @@ export default async function GuestHome({
       hotelName={hotel?.name ?? null}
       loginAction={loginAction}
       portal={portal}
-      startInApp={connected || session !== null}
+      startInApp={session !== null}
       session={session}
-      surveyOffer={surveyOffer}
+      surveyOffer={null}
     />
   );
 }
