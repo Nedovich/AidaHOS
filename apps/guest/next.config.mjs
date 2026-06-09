@@ -9,6 +9,13 @@ const nextConfig = {
   outputFileTracingRoot: fileURLToPath(new URL('../../', import.meta.url)),
   transpilePackages: ['@aidahos/ui', '@aidahos/i18n', '@aidahos/db'],
   serverExternalPackages: ['postgres'],
+  // Behind Coolify/Traefik, Server Actions need the public origin allow-listed or the
+  // CSRF/origin check rejects POSTs (login fails with "Something went wrong").
+  experimental: {
+    serverActions: {
+      allowedOrigins: ['aidaguest.kreatinmedya.com', 'aidahos.kreatinmedya.com'],
+    },
+  },
 };
 
 export default nextConfig;

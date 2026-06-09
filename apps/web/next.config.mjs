@@ -11,6 +11,13 @@ const nextConfig = {
   // Run these as Node modules instead of bundling (better-auth pulls in kysely with a
   // mismatched export that breaks webpack; postgres is a native-ish driver).
   serverExternalPackages: ['better-auth', 'kysely', 'postgres'],
+  // Behind Coolify/Traefik, Server Actions need the public origin allow-listed or the
+  // CSRF/origin check rejects POSTs.
+  experimental: {
+    serverActions: {
+      allowedOrigins: ['aidahos.kreatinmedya.com', 'aidaguest.kreatinmedya.com'],
+    },
+  },
 };
 
 export default nextConfig;
