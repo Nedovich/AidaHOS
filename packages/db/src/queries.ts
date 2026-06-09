@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { db, withTenant } from './client';
 import {
   auditLogs,
@@ -653,7 +653,9 @@ export async function hasGuestResponded(surveyId: string, hotelId: string, roomN
           eq(surveyResponses.surveyId, surveyId),
           eq(surveyResponses.hotelId, hotelId),
           eq(surveyResponses.roomNo, roomNo),
-          sql`${surveyResponses.submittedAt} >= ${since}`,
+          // gte() uses the column's timestamp mapper to serialize the Date — a raw
+          // `sql\`… >= ${since}\`` passes a bare Date that postgres.js can't bind.
+          gte(surveyResponses.submittedAt, since),
         ),
       )
       .limit(1);
