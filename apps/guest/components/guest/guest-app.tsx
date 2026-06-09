@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { AIDA_BRANDS, AIDA_GUEST, AIDA_NOTIFS, type AidaEvent } from '@/lib/data';
 import { LangCtx, L, makeT, useLang, type Lang } from '@/lib/i18n';
+import type { SurveyOffer } from '@/lib/survey-types';
 import { BottomNav, Icon, Sheet } from './ui';
 import { ComingSoon, Home, Login, Splash } from './screens';
+import { CaptiveSurvey } from '@/components/captive-survey';
 
 /* Reception quick-request sheet (concierge) */
 function ReceptionSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -46,7 +48,46 @@ function ReceptionSheet({ open, onClose }: { open: boolean; onClose: () => void 
 
 type SheetState = { type: null | 'reception' | 'event' | 'dining' | 'spa'; item?: unknown };
 
-export type LoginFn = (room: string, dob: string) => Promise<{ ok: boolean; error?: string; username?: string }>;
+export type LoginFn = (
+  room: string,
+  dob: string,
+) => Promise<{ ok: boolean; error?: string; username?: string; survey?: SurveyOffer | null }>;
+
+/* Post-login invite: "want to take the survey?" → Yes opens the default survey, No skips. */
+function SurveyInvite({ name, onYes, onNo }: { name: string; onYes: () => void; onNo: () => void }) {
+  const { lang } = useLang();
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 70, display: 'grid', placeItems: 'center', padding: 24, background: 'rgba(20,28,30,.5)', backdropFilter: 'blur(3px)' }}>
+      <div className="card" style={{ width: '100%', maxWidth: 360, padding: 24, textAlign: 'center' }}>
+        <div style={{ width: 56, height: 56, margin: '0 auto 14px', borderRadius: 16, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--brand-primary) 14%, var(--surface))', color: 'var(--brand-primary)' }}>
+          <Icon name="check" size={26} stroke={2} />
+        </div>
+        <h3 style={{ margin: '0 0 6px', fontFamily: 'var(--font-display)', fontSize: 23, fontWeight: 600, color: 'var(--ink)' }}>
+          {L({ en: 'Got a minute?', tr: 'Bir dakikanız var mı?', de: 'Haben Sie eine Minute?', ru: 'Найдётся минутка?' }, lang)}
+        </h3>
+        <p className="t-body" style={{ margin: '0 0 20px' }}>
+          {L(
+            {
+              en: `Would you like to take our short survey “${name}”? It only takes a minute.`,
+              tr: `Kısa anketimize (“${name}”) katılmak ister misiniz? Yalnızca bir dakika sürer.`,
+              de: `Möchten Sie an unserer kurzen Umfrage „${name}“ teilnehmen? Dauert nur eine Minute.`,
+              ru: `Хотите пройти короткий опрос «${name}»? Это займёт минуту.`,
+            },
+            lang,
+          )}
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button onClick={onYes} style={{ padding: '14px', border: 'none', borderRadius: 'var(--r-md)', background: 'var(--brand-primary)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+            {L({ en: 'Yes, sure', tr: 'Evet, katılayım', de: 'Ja, gerne', ru: 'Да, конечно' }, lang)}
+          </button>
+          <button onClick={onNo} style={{ padding: '12px', border: 0, background: 'none', color: 'var(--ink-soft, var(--brand-secondary))', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+            {L({ en: 'No thanks', tr: 'Hayır, teşekkürler', de: 'Nein, danke', ru: 'Нет, спасибо' }, lang)}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export interface MikrotikPortal {
   loginUrl: string;
@@ -68,10 +109,21 @@ export interface GuestAppProps {
   portal?: MikrotikPortal | null;
   startInApp?: boolean;
   session?: GuestSession | null;
+  surveyOffer?: SurveyOffer | null;
 }
 
-function AppInner({ loginAction, portal, hotelSlug, startInApp, session }: { loginAction?: LoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; startInApp?: boolean; session?: GuestSession | null }) {
+function AppInner({ loginAction, portal, hotelSlug, startInApp, session, surveyOffer }: { loginAction?: LoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; startInApp?: boolean; session?: GuestSession | null; surveyOffer?: SurveyOffer | null }) {
   const [stage, setStage] = useState<'splash' | 'login' | 'app'>(startInApp ? 'app' : 'splash');
+  // Default-survey flow: server passes surveyOffer on the ?connected=1 return; the dev
+  // (no-MikroTik) login path supplies it via the loginAction result instead.
+  const [offer, setOffer] = useState<SurveyOffer | null>(surveyOffer ?? null);
+  const [invite, setInvite] = useState<boolean>(!!surveyOffer);
+  const [surveyOpen, setSurveyOpen] = useState(false);
+  const clearUrl = () => {
+    try {
+      if (typeof window !== 'undefined' && window.location.search) window.history.replaceState(null, '', `/${hotelSlug ?? ''}`);
+    } catch {}
+  };
   const [tab, setTab] = useState('home');
   const [stack, setStack] = useState<string[]>([]);
   const [joined, setJoined] = useState<Set<string>>(new Set());
@@ -118,19 +170,44 @@ function AppInner({ loginAction, portal, hotelSlug, startInApp, session }: { log
     <div className="aida-app" data-mode="day"
       style={{ '--brand-primary': brand.primary, '--brand-primary-700': brand.primary700, '--brand-secondary': brand.secondary, '--brand-accent': brand.accent, position: 'absolute', inset: 0, overflow: 'hidden', background: 'var(--bg)' } as CSSProperties}>
       {stage === 'splash' && <Splash brand={brand} onEnter={() => setStage('login')} />}
-      {stage === 'login' && <Login brand={brand} loginAction={loginAction} portal={portal} hotelSlug={hotelSlug} onLogin={() => { setStage('app'); setTab('home'); }} />}
+      {stage === 'login' && (
+        <Login
+          brand={brand}
+          loginAction={loginAction}
+          portal={portal}
+          hotelSlug={hotelSlug}
+          onLogin={(survey) => {
+            setStage('app');
+            setTab('home');
+            if (survey) {
+              setOffer(survey);
+              setInvite(true);
+            }
+          }}
+        />
+      )}
       {stage === 'app' && (
         <>
           <div style={{ position: 'absolute', inset: 0 }}>{renderScreen()}</div>
           {showNav && <BottomNav active={tab} onNav={onTab} unread={unread} />}
         </>
       )}
+      {stage === 'app' && invite && offer && (
+        <SurveyInvite
+          name={offer.name}
+          onYes={() => { setInvite(false); setSurveyOpen(true); clearUrl(); }}
+          onNo={() => { setInvite(false); clearUrl(); }}
+        />
+      )}
+      {stage === 'app' && surveyOpen && offer && (
+        <CaptiveSurvey offer={offer} onDone={() => { setSurveyOpen(false); clearUrl(); }} />
+      )}
       <ReceptionSheet open={sheet.type === 'reception'} onClose={() => setSheet({ type: null })} />
     </div>
   );
 }
 
-export function GuestApp({ loginAction, portal, hotelSlug, startInApp, session }: GuestAppProps = {}) {
+export function GuestApp({ loginAction, portal, hotelSlug, startInApp, session, surveyOffer }: GuestAppProps = {}) {
   const [lang, setLangState] = useState<Lang>('en');
   useEffect(() => {
     const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('aida_lang')) as Lang | null;
@@ -142,7 +219,7 @@ export function GuestApp({ loginAction, portal, hotelSlug, startInApp, session }
   return (
     <LangCtx.Provider value={value}>
       <div style={{ position: 'relative', width: '100%', maxWidth: 440, height: '100dvh', margin: '0 auto', overflow: 'hidden', background: 'var(--bg)', boxShadow: '0 0 80px -20px rgba(40,25,12,.25)' }}>
-        <AppInner loginAction={loginAction} portal={portal} hotelSlug={hotelSlug} startInApp={startInApp} session={session} />
+        <AppInner loginAction={loginAction} portal={portal} hotelSlug={hotelSlug} startInApp={startInApp} session={session} surveyOffer={surveyOffer} />
       </div>
     </LangCtx.Provider>
   );

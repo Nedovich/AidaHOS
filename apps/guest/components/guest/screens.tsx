@@ -6,6 +6,7 @@ import {
   AIDA_DINING, AIDA_EVENTS, AIDA_EXPERIENCES, AIDA_SPA, AIDA_TONIGHT, AIDA_WEATHER, IMG, PH,
   type AidaEvent, type Brand, type Dining, type Experience, type Spa,
 } from '@/lib/data';
+import type { SurveyOffer } from '@/lib/survey-types';
 import { Button, Icon, LangSwitch, Ph, StatusBar } from './ui';
 import { DiningCard, EventCard, ExperienceCard, Rail, RowHead, SpaCard, TonightHero, WeatherLine } from './cards';
 
@@ -53,10 +54,10 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-type LoginFn = (room: string, dob: string) => Promise<{ ok: boolean; error?: string; username?: string }>;
+type LoginFn = (room: string, dob: string) => Promise<{ ok: boolean; error?: string; username?: string; survey?: SurveyOffer | null }>;
 interface MikrotikPortal { loginUrl: string; orig: string; mac: string }
 
-export function Login({ brand, onLogin, loginAction, portal, hotelSlug }: { brand: Brand; onLogin: () => void; loginAction?: LoginFn; portal?: MikrotikPortal | null; hotelSlug?: string }) {
+export function Login({ brand, onLogin, loginAction, portal, hotelSlug }: { brand: Brand; onLogin: (survey?: SurveyOffer | null) => void; loginAction?: LoginFn; portal?: MikrotikPortal | null; hotelSlug?: string }) {
   const { t, lang } = useLang();
   const [room, setRoom] = useState('');
   const [dob, setDob] = useState('');
@@ -81,7 +82,8 @@ export function Login({ brand, onLogin, loginAction, portal, hotelSlug }: { bran
             window.location.href = u; // top-level nav (https→http allowed; not mixed content)
             return;
           }
-          onLogin();
+          // Dev path (no MikroTik): no gateway round-trip, so offer the default survey here.
+          onLogin(res.survey ?? null);
           return;
         }
         setErr(

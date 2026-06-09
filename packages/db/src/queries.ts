@@ -1,6 +1,15 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { db, withTenant } from './client';
-import { auditLogs, hotelGroups, hotels, hotelSimulation, memberships, users } from './schema';
+import {
+  auditLogs,
+  hotelGroups,
+  hotels,
+  hotelSimulation,
+  memberships,
+  surveyResponses,
+  surveys,
+  users,
+} from './schema';
 
 type AppRole = 'super_admin' | 'admin' | 'user' | 'customer';
 const SUPER: { role: AppRole } = { role: 'super_admin' };
@@ -166,15 +175,21 @@ export async function updateHotelGroup(
   );
 }
 
+type RadiusBackend = 'central_freeradius' | 'local_mikrotik';
+
 export async function updateHotel(
   id: string,
   patch: {
     name?: string;
     status?: TenantStatus;
     hotelGroupId?: string;
+    radiusBackend?: RadiusBackend;
     mikrotikIp?: string | null;
     exitIp?: string | null;
     nasSecret?: string | null;
+    mikrotikApiUser?: string | null;
+    mikrotikApiPassword?: string | null;
+    mikrotikApiPort?: number | null;
   },
 ) {
   return withTenant(SUPER, (tx) =>
@@ -300,9 +315,13 @@ export async function createHotelFull(input: {
   hotelGroupId: string;
   name: string;
   slug: string;
+  radiusBackend?: RadiusBackend;
   mikrotikIp?: string | null;
   exitIp?: string | null;
   nasSecret?: string | null;
+  mikrotikApiUser?: string | null;
+  mikrotikApiPassword?: string | null;
+  mikrotikApiPort?: number | null;
 }) {
   return withTenant(SUPER, async (tx) => {
     const r = await tx
@@ -311,9 +330,13 @@ export async function createHotelFull(input: {
         hotelGroupId: input.hotelGroupId,
         name: input.name,
         slug: input.slug,
+        radiusBackend: input.radiusBackend ?? 'central_freeradius',
         mikrotikIp: input.mikrotikIp ?? null,
         exitIp: input.exitIp ?? null,
         nasSecret: input.nasSecret ?? null,
+        mikrotikApiUser: input.mikrotikApiUser ?? null,
+        mikrotikApiPassword: input.mikrotikApiPassword ?? null,
+        mikrotikApiPort: input.mikrotikApiPort ?? null,
       })
       .returning();
     return r[0]!;
@@ -442,4 +465,352 @@ export async function listHotelSimulation(hotelId: string) {
     .from(hotelSimulation)
     .where(eq(hotelSimulation.hotelId, hotelId))
     .orderBy(hotelSimulation.roomNo);
+}
+
+/* ============================================================
+   Surveys — group-scoped. Query fns run under SUPER (RLS bypass-via-policy),
+   tenant scoping enforced by explicit hotel_group_id predicates, matching the
+   getHotelsForGroup / getHotelById convention above.
+   ============================================================ */
+
+export type SurveyStatus = 'draft' | 'published' | 'paused' | 'archived';
+export type ResponseStatus = 'new' | 'reviewed' | 'flagged';
+
+export interface SurveyAccessControl {
+  guestVerification?: boolean;
+  isAccountDefault?: boolean;
+  expiresAt?: string | null;
+}
+
+export interface SurveyNote {
+  who: string;
+  when: string;
+  body: string;
+}
+
+function slugify(s: string): string {
+  return (
+    s
+      .toLowerCase()
+      .replace(/[çğıöşü]/g, (c) => ({ ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u' })[c] ?? c)
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48) || 'survey'
+  );
+}
+
+export async function listSurveys(hotelGroupId: string) {
+  return withTenant(SUPER, (tx) =>
+    tx
+      .select({
+        id: surveys.id,
+        name: surveys.name,
+        description: surveys.description,
+        slug: surveys.slug,
+        status: surveys.status,
+        defaultLocale: surveys.defaultLocale,
+        isDefault: surveys.isDefault,
+        createdAt: surveys.createdAt,
+        updatedAt: surveys.updatedAt,
+        responseCount: sql<number>`(select count(*)::int from ${surveyResponses} where ${surveyResponses.surveyId} = ${surveys.id})`,
+      })
+      .from(surveys)
+      .where(eq(surveys.hotelGroupId, hotelGroupId))
+      .orderBy(desc(surveys.updatedAt)),
+  );
+}
+
+export async function getSurveyById(id: string) {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx.select().from(surveys).where(eq(surveys.id, id));
+    return r[0] ?? null;
+  });
+}
+
+export async function getSurveyBySlug(slug: string) {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx.select().from(surveys).where(eq(surveys.slug, slug));
+    return r[0] ?? null;
+  });
+}
+
+export async function createSurvey(input: {
+  hotelGroupId: string;
+  hotelId: string;
+  name: string;
+  description?: string | null;
+  json?: unknown;
+  defaultLocale?: string;
+  thankYouTitle?: string | null;
+  thankYouDescription?: string | null;
+  createdBy?: string | null;
+}) {
+  const slug = `${slugify(input.name)}-${Math.random().toString(36).slice(2, 6)}`;
+  return withTenant(SUPER, async (tx) => {
+    // Names must be unique within the group — auto-suffix on collision so create never fails.
+    const existing = await tx.select({ name: surveys.name }).from(surveys).where(eq(surveys.hotelGroupId, input.hotelGroupId));
+    const taken = new Set(existing.map((e) => e.name.toLowerCase()));
+    let name = input.name;
+    for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${input.name} ${n}`;
+    const r = await tx
+      .insert(surveys)
+      .values({
+        hotelGroupId: input.hotelGroupId,
+        hotelId: input.hotelId,
+        name,
+        description: input.description ?? null,
+        slug,
+        json: (input.json ?? {}) as object,
+        defaultLocale: input.defaultLocale ?? 'en',
+        thankYouTitle: input.thankYouTitle ?? null,
+        thankYouDescription: input.thankYouDescription ?? null,
+        createdBy: input.createdBy ?? null,
+      })
+      .returning();
+    return r[0]!;
+  });
+}
+
+export async function updateSurvey(
+  id: string,
+  patch: {
+    name?: string;
+    description?: string | null;
+    json?: unknown;
+    defaultLocale?: string;
+    status?: SurveyStatus;
+    thankYouTitle?: string | null;
+    thankYouDescription?: string | null;
+    hotelId?: string;
+    accessControl?: SurveyAccessControl;
+  },
+) {
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+  if (patch.name !== undefined) set.name = patch.name;
+  if (patch.description !== undefined) set.description = patch.description;
+  if (patch.json !== undefined) set.json = patch.json as object;
+  if (patch.defaultLocale !== undefined) set.defaultLocale = patch.defaultLocale;
+  if (patch.status !== undefined) set.status = patch.status;
+  if (patch.thankYouTitle !== undefined) set.thankYouTitle = patch.thankYouTitle;
+  if (patch.thankYouDescription !== undefined) set.thankYouDescription = patch.thankYouDescription;
+  if (patch.hotelId !== undefined) set.hotelId = patch.hotelId;
+  if (patch.accessControl !== undefined) set.accessControl = patch.accessControl;
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx.update(surveys).set(set).where(eq(surveys.id, id)).returning();
+    return r[0] ?? null;
+  });
+}
+
+/** True if another survey in the group already uses this name (case-insensitive). */
+export async function surveyNameExists(hotelGroupId: string, name: string, excludeId?: string): Promise<boolean> {
+  return withTenant(SUPER, async (tx) => {
+    const rows = await tx
+      .select({ id: surveys.id })
+      .from(surveys)
+      .where(and(eq(surveys.hotelGroupId, hotelGroupId), sql`lower(${surveys.name}) = lower(${name})`));
+    return rows.some((r) => r.id !== excludeId);
+  });
+}
+
+export async function deleteSurvey(id: string) {
+  return withTenant(SUPER, async (tx) => {
+    await tx.delete(surveys).where(eq(surveys.id, id));
+  });
+}
+
+/** The published default survey for a hotel (shown after captive-WiFi login), or null. */
+export async function getDefaultSurvey(hotelId: string) {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx
+      .select()
+      .from(surveys)
+      .where(and(eq(surveys.hotelId, hotelId), eq(surveys.isDefault, true), eq(surveys.status, 'published')))
+      .limit(1);
+    return r[0] ?? null;
+  });
+}
+
+/** Make `surveyId` the hotel's default (unsetting siblings), or clear it. */
+export async function setDefaultSurvey(hotelId: string, surveyId: string, makeDefault: boolean) {
+  return withTenant(SUPER, async (tx) => {
+    if (makeDefault) {
+      await tx.update(surveys).set({ isDefault: false }).where(and(eq(surveys.hotelId, hotelId), eq(surveys.isDefault, true)));
+      await tx.update(surveys).set({ isDefault: true }).where(eq(surveys.id, surveyId));
+    } else {
+      await tx.update(surveys).set({ isDefault: false }).where(eq(surveys.id, surveyId));
+    }
+  });
+}
+
+/** Has this guest (room) already answered the survey during the current stay? */
+export async function hasGuestResponded(surveyId: string, hotelId: string, roomNo: string, since: Date): Promise<boolean> {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx
+      .select({ id: surveyResponses.id })
+      .from(surveyResponses)
+      .where(
+        and(
+          eq(surveyResponses.surveyId, surveyId),
+          eq(surveyResponses.hotelId, hotelId),
+          eq(surveyResponses.roomNo, roomNo),
+          sql`${surveyResponses.submittedAt} >= ${since}`,
+        ),
+      )
+      .limit(1);
+    return r.length > 0;
+  });
+}
+
+export async function setSurveyStatus(id: string, status: SurveyStatus) {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx
+      .update(surveys)
+      .set({ status, updatedAt: new Date(), ...(status === 'published' ? { publishedAt: new Date() } : {}) })
+      .where(eq(surveys.id, id))
+      .returning();
+    return r[0] ?? null;
+  });
+}
+
+export async function publishSurvey(id: string, accessControl: SurveyAccessControl) {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx
+      .update(surveys)
+      .set({ status: 'published', accessControl, publishedAt: new Date(), updatedAt: new Date() })
+      .where(eq(surveys.id, id))
+      .returning();
+    return r[0] ?? null;
+  });
+}
+
+export interface SurveyStats {
+  totalResponses: number;
+  avgScore: number | null;
+  lastResponseAt: Date | null;
+}
+
+export async function surveyStats(id: string): Promise<SurveyStats> {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx
+      .select({
+        total: sql<number>`count(*)::int`,
+        avg: sql<number | null>`round(avg(${surveyResponses.score}), 1)`,
+        // Raw aggregate isn't run through drizzle's date mapper, so coerce below.
+        last: sql<string | Date | null>`max(${surveyResponses.submittedAt})`,
+      })
+      .from(surveyResponses)
+      .where(eq(surveyResponses.surveyId, id));
+    const row = r[0];
+    return {
+      totalResponses: row?.total ?? 0,
+      avgScore: row?.avg != null ? Number(row.avg) : null,
+      lastResponseAt: row?.last ? new Date(row.last) : null,
+    };
+  });
+}
+
+/** Responses for a group (optionally one survey), with the survey name joined in. */
+export async function listResponses(hotelGroupId: string, opts?: { surveyId?: string; limit?: number }) {
+  return withTenant(SUPER, (tx) => {
+    const where = opts?.surveyId
+      ? and(eq(surveyResponses.hotelGroupId, hotelGroupId), eq(surveyResponses.surveyId, opts.surveyId))
+      : eq(surveyResponses.hotelGroupId, hotelGroupId);
+    const q = tx
+      .select({
+        id: surveyResponses.id,
+        surveyId: surveyResponses.surveyId,
+        surveyName: surveys.name,
+        roomNo: surveyResponses.roomNo,
+        guestName: surveyResponses.guestName,
+        score: surveyResponses.score,
+        status: surveyResponses.status,
+        source: surveyResponses.source,
+        submittedAt: surveyResponses.submittedAt,
+      })
+      .from(surveyResponses)
+      .innerJoin(surveys, eq(surveyResponses.surveyId, surveys.id))
+      .where(where)
+      .orderBy(desc(surveyResponses.submittedAt));
+    return opts?.limit ? q.limit(opts.limit) : q;
+  });
+}
+
+export async function getResponseById(id: string) {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx
+      .select({
+        id: surveyResponses.id,
+        surveyId: surveyResponses.surveyId,
+        surveyName: surveys.name,
+        surveyJson: surveys.json,
+        hotelGroupId: surveyResponses.hotelGroupId,
+        hotelId: surveyResponses.hotelId,
+        roomNo: surveyResponses.roomNo,
+        guestName: surveyResponses.guestName,
+        data: surveyResponses.data,
+        score: surveyResponses.score,
+        status: surveyResponses.status,
+        source: surveyResponses.source,
+        device: surveyResponses.device,
+        authMethod: surveyResponses.authMethod,
+        completionSeconds: surveyResponses.completionSeconds,
+        assigneeName: surveyResponses.assigneeName,
+        nlpTags: surveyResponses.nlpTags,
+        internalNotes: surveyResponses.internalNotes,
+        submittedAt: surveyResponses.submittedAt,
+      })
+      .from(surveyResponses)
+      .innerJoin(surveys, eq(surveyResponses.surveyId, surveys.id))
+      .where(eq(surveyResponses.id, id));
+    return r[0] ?? null;
+  });
+}
+
+export async function updateResponseInternal(
+  id: string,
+  patch: { status?: ResponseStatus; assigneeName?: string | null; internalNotes?: SurveyNote[] },
+) {
+  const set: Record<string, unknown> = {};
+  if (patch.status !== undefined) set.status = patch.status;
+  if (patch.assigneeName !== undefined) set.assigneeName = patch.assigneeName;
+  if (patch.internalNotes !== undefined) set.internalNotes = patch.internalNotes;
+  if (Object.keys(set).length === 0) return null;
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx.update(surveyResponses).set(set).where(eq(surveyResponses.id, id)).returning();
+    return r[0] ?? null;
+  });
+}
+
+export async function createSurveyResponse(input: {
+  surveyId: string;
+  hotelGroupId: string;
+  hotelId?: string | null;
+  roomNo?: string | null;
+  guestName?: string | null;
+  data: unknown;
+  score?: number | null;
+  source?: string | null;
+  device?: string | null;
+  authMethod?: string | null;
+  completionSeconds?: number | null;
+}) {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx
+      .insert(surveyResponses)
+      .values({
+        surveyId: input.surveyId,
+        hotelGroupId: input.hotelGroupId,
+        hotelId: input.hotelId ?? null,
+        roomNo: input.roomNo ?? null,
+        guestName: input.guestName ?? null,
+        data: (input.data ?? {}) as object,
+        score: input.score != null ? String(input.score) : null,
+        source: input.source ?? null,
+        device: input.device ?? null,
+        authMethod: input.authMethod ?? null,
+        completionSeconds: input.completionSeconds ?? null,
+      })
+      .returning();
+    return r[0]!;
+  });
 }

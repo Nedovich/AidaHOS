@@ -4,3 +4,4 @@ export * from './auth';
 export * from './memberships';
 export * from './audit';
 export * from './simulation';
+export * from './surveys';

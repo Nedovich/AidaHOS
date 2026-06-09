@@ -1,0 +1,16 @@
+# Keep the build context small + never ship host artifacts/secrets into the image.
+**/node_modules
+**/.next
+**/dist
+.git
+.github
+.env
+.env.*
+**/*.log
+.DS_Store
+.turbo
+.vscode
+.idea
+apps/api/.venv
+infra
+*.md

@@ -6,6 +6,7 @@ import { Check } from 'lucide-react';
 import { L } from '@/lib/i18n';
 import { Crumb, FormFoot, FormRow, FormSection } from './form';
 import { useLang } from './lang-provider';
+import { SubmitButton } from './submit-button';
 
 export interface UserFormDefaults {
   name?: string;
@@ -114,9 +115,9 @@ export function UserForm({
 
           <FormFoot note={isEdit ? L(['Rol/atama değişikliği erişimi anında etkiler.', 'Role/assignment changes affect access immediately.'], lang) : L(['Kullanıcı hemen oluşturulur.', 'The user is created immediately.'], lang)}>
             <Link className="btn btn--subtle btn--sm" href={backHref}>{L(['Vazgeç', 'Cancel'], lang)}</Link>
-            <button className="btn btn--primary btn--sm" type="submit">
+            <SubmitButton className="btn btn--primary btn--sm">
               <Check size={15} /> {isEdit ? L(['Kaydet', 'Save'], lang) : L(['Kullanıcı oluştur', 'Create user'], lang)}
-            </button>
+            </SubmitButton>
           </FormFoot>
         </div>
       </form>

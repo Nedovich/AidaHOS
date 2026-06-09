@@ -3,6 +3,7 @@ import { Check } from 'lucide-react';
 import { L, type Lang } from '@/lib/i18n';
 import { PLAN_OPTIONS } from '@/lib/plans';
 import { Crumb, FormFoot, FormRow, FormSection } from './form';
+import { SubmitButton } from './submit-button';
 
 const STATUSES: [string, readonly [string, string]][] = [
   ['active', ['Aktif', 'Active']],
@@ -112,9 +113,9 @@ export function AccountForm({
 
           <FormFoot note={isEdit ? L(['Değişiklikler kaydedildiğinde uygulanır.', 'Changes apply when saved.'], lang) : L(['Hesap hemen oluşturulur.', 'The account is created immediately.'], lang)}>
             <Link className="btn btn--subtle btn--sm" href="/accounts">{L(['Vazgeç', 'Cancel'], lang)}</Link>
-            <button className="btn btn--primary btn--sm" type="submit">
+            <SubmitButton className="btn btn--primary btn--sm">
               <Check size={15} /> {isEdit ? L(['Kaydet', 'Save'], lang) : L(['Hesap oluştur', 'Create account'], lang)}
-            </button>
+            </SubmitButton>
           </FormFoot>
         </div>
       </form>

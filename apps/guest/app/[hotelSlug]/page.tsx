@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { findHotelBySlug } from '@aidahos/db';
 import { GuestApp, type GuestSession } from '@/components/guest/guest-app';
 import { GUEST_COOKIE } from '@/lib/constants';
+import { defaultSurveyOffer } from '@/lib/survey-offer';
 import { loginGuest } from './actions';
 
 // Guest portal for a hotel. In production the MikroTik captive portal redirects
@@ -43,6 +44,13 @@ export default async function GuestHome({
     session = null;
   }
 
+  // On the post-login return (?connected=1), offer the hotel's default survey before
+  // the portal — unless this guest already answered it this stay.
+  let surveyOffer = null;
+  if (connected && session?.room && hotel) {
+    surveyOffer = await defaultSurveyOffer(hotel.id, session.room, session.checkIn);
+  }
+
   return (
     <GuestApp
       hotelSlug={hotelSlug}
@@ -51,6 +59,7 @@ export default async function GuestHome({
       portal={portal}
       startInApp={connected || session !== null}
       session={session}
+      surveyOffer={surveyOffer}
     />
   );
 }

@@ -67,9 +67,13 @@ The portal runs on `localhost:3001`. Expose it with a quick Cloudflare tunnel:
 
 ```sh
 brew install cloudflared
-cloudflared tunnel --url http://localhost:3001
+# --protocol http2 forces TCP/443 (QUIC/UDP-7844 flaps through the MikroTik → intermittent 502s)
+cloudflared tunnel --protocol http2 --url http://127.0.0.1:3001
 # → prints  https://<random>.trycloudflare.com
 ```
+
+Easier: `MIKROTIK_PW=••• infra/mikrotik/refresh-tunnel.sh` does the restart + login.html
+rewrite + FTP push in one shot (quick-tunnel URLs change every restart).
 
 Put that host into `login.html` `PORTAL` and into the walled garden.
 Test rooms (Esken): `101 / 08051990`, `102 / 15071985`, `205 / 23111978`, `250 / 01011990`.

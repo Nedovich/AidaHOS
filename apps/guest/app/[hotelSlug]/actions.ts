@@ -1,12 +1,14 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { findHotelBySlug, isRadiusConfigured, upsertRadiusUser } from '@aidahos/db';
+import { createSurveyResponse, findHotelBySlug, getSurveyById, isRadiusConfigured, upsertRadiusUser } from '@aidahos/db';
 import { verifyGuest } from '@/lib/verify';
 import { GUEST_COOKIE } from '@/lib/constants';
+import { defaultSurveyOffer, type SurveyOffer } from '@/lib/survey-offer';
+import { deriveScore } from '@/lib/score';
 
 export type LoginResult =
-  | { ok: true; guestName: string | null; username: string }
+  | { ok: true; guestName: string | null; username: string; survey: SurveyOffer | null }
   | { ok: false; error: 'invalid' | 'not_found' | 'provisioning' };
 
 const DOB = /^\d{8}$/; // DDMMYYYY
@@ -31,7 +33,12 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
 
   const username = `${hotel.slug}-${roomNo}`;
   try {
-    if (isRadiusConfigured()) {
+    if (hotel.radiusBackend === 'local_mikrotik') {
+      // Local backend: the guest must be written to the hotel's own MikroTik via the
+      // RouterOS REST API (apps/api, over Tailscale). Deferred — see plan. For now we
+      // don't provision into our FreeRADIUS (that would be the wrong RADIUS).
+      console.warn(`[guest] local MikroTik provisioning deferred for ${username} (hotel ${hotel.slug})`);
+    } else if (isRadiusConfigured()) {
       await upsertRadiusUser({ username, password: birthDate });
     }
   } catch (e) {
@@ -57,5 +64,49 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
     { httpOnly: true, sameSite: 'lax', path: '/', expires },
   );
 
-  return { ok: true, guestName: res.guest.guestName, username };
+  // Offer the hotel's default survey right after login (unless already answered this stay).
+  const survey = await defaultSurveyOffer(hotel.id, roomNo, res.guest.checkIn);
+
+  return { ok: true, guestName: res.guest.guestName, username, survey };
+}
+
+export type CaptiveSubmitResult = { ok: true } | { ok: false };
+
+/**
+ * Submit a captive-flow survey response. The guest identity (hotel/room/name) is read
+ * server-side from the aida_guest session cookie — the client never supplies it.
+ */
+export async function submitCaptiveSurvey(
+  surveyId: string,
+  data: Record<string, unknown>,
+  device?: string,
+): Promise<CaptiveSubmitResult> {
+  const jar = await cookies();
+  const raw = jar.get(GUEST_COOKIE)?.value;
+  if (!raw) return { ok: false };
+  let s: { hotelSlug?: string; room?: string; name?: string };
+  try {
+    s = JSON.parse(raw);
+  } catch {
+    return { ok: false };
+  }
+  if (!s.hotelSlug) return { ok: false };
+
+  const hotel = await findHotelBySlug(s.hotelSlug);
+  const survey = await getSurveyById(surveyId);
+  if (!hotel || !survey || survey.status !== 'published' || survey.hotelId !== hotel.id) return { ok: false };
+
+  await createSurveyResponse({
+    surveyId,
+    hotelGroupId: survey.hotelGroupId,
+    hotelId: hotel.id,
+    roomNo: s.room ?? null,
+    guestName: s.name ?? null,
+    data,
+    score: deriveScore(survey.json, data),
+    source: 'Captive portal',
+    device: device ?? null,
+    authMethod: 'Room Number + Surname',
+  });
+  return { ok: true };
 }

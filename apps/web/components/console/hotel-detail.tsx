@@ -71,9 +71,13 @@ type HotelLike = {
   color: string;
   pmsType: string;
   hotelGroupId: string;
+  radiusBackend: string;
   mikrotikIp: string | null;
   exitIp: string | null;
   nasSecret: string | null;
+  mikrotikApiUser: string | null;
+  mikrotikApiPassword: string | null;
+  mikrotikApiPort: number | null;
 };
 
 /**
@@ -106,10 +110,13 @@ export async function HotelDetailView({
   const st = STATUS[hotel.status] ?? ['mute', [hotel.status, hotel.status]];
   const pms = PMS_LABEL[hotel.pmsType] ?? hotel.pmsType;
   const hasMt = Boolean(hotel.mikrotikIp);
+  // Our FreeRADIUS reads only apply to central_freeradius hotels. Local MikroTik
+  // hotels are read via the RouterOS REST API (apps/api, deferred) — show a placeholder.
+  const isCentral = hotel.radiusBackend !== 'local_mikrotik';
 
   let nas: Awaited<ReturnType<typeof getNas>> = null;
   try {
-    if (isRadiusConfigured()) nas = await getNas(nasShortname(hotel.slug));
+    if (isCentral && isRadiusConfigured()) nas = await getNas(nasShortname(hotel.slug));
   } catch {
     nas = null;
   }
@@ -126,7 +133,7 @@ export async function HotelDetailView({
   ];
 
   let radiusUsers: RadiusUserSummary[] = [];
-  if (tab === 'connections') {
+  if (tab === 'connections' && isCentral) {
     try {
       if (isRadiusConfigured()) radiusUsers = await listRadiusUsers();
     } catch {
@@ -136,7 +143,7 @@ export async function HotelDetailView({
 
   let netStats: NasSessionStats = { active: 0, total: 0, users: 0 };
   const nasIp = hotel.exitIp ?? hotel.mikrotikIp;
-  if (tab === 'network' && nasIp) {
+  if (tab === 'network' && isCentral && nasIp) {
     try {
       if (isRadiusConfigured()) netStats = await getNasSessionStats(nasIp);
     } catch {
@@ -195,8 +202,26 @@ export async function HotelDetailView({
           lang={lang}
           action={editAction}
           groups={groups}
-          defaults={{ name: hotel.name, status: hotel.status, hotelGroupId: hotel.hotelGroupId, mikrotikIp: hotel.mikrotikIp, exitIp: hotel.exitIp, nasSecret: hotel.nasSecret }}
+          defaults={{ name: hotel.name, status: hotel.status, hotelGroupId: hotel.hotelGroupId, radiusBackend: hotel.radiusBackend, mikrotikIp: hotel.mikrotikIp, exitIp: hotel.exitIp, nasSecret: hotel.nasSecret, mikrotikApiUser: hotel.mikrotikApiUser, mikrotikApiPassword: hotel.mikrotikApiPassword, mikrotikApiPort: hotel.mikrotikApiPort }}
         />
+      ) : !isCentral && (tab === 'connections' || tab === 'network') ? (
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">{L(['Otelin kendi MikroTik’i', "Hotel's own MikroTik"], lang)}</div>
+              <div className="card__sub">{L(['Local RADIUS — RouterOS API ile yönetiliyor', 'Local RADIUS — managed via RouterOS API'], lang)}</div>
+            </div>
+          </div>
+          <div className="card__body empty" style={{ paddingTop: 8 }}>
+            <div style={{ color: 'var(--text-3)', maxWidth: 460, lineHeight: 1.5 }}>
+              {L(
+                ['Bu otel kendi sunucusundaki MikroTik RADIUS’unu kullanıyor. Kullanıcılar ve oturumlar bizim FreeRADIUS’umuzda tutulmaz. Canlı veri, MikroTik RouterOS API entegrasyonu (Tailscale) tamamlanınca burada gösterilecek.',
+                  "This hotel uses its own MikroTik RADIUS. Users and sessions are not stored in our FreeRADIUS. Live data will appear here once the MikroTik RouterOS API integration (Tailscale) is wired."],
+                lang,
+              )}
+            </div>
+          </div>
+        </div>
       ) : tab === 'connections' ? (
         <ConnectionsTable users={radiusUsers} hotelId={hotel.id} lang={lang} basePath={basePath} />
       ) : tab === 'network' ? (

@@ -3,6 +3,8 @@ import '@/styles/console/tokens.css';
 import '@/styles/console/app.css';
 import '@/styles/console/ops.css';
 import '@/styles/console/forms.css';
+import '@/styles/console/survey.css';
+import '@/styles/console/survey-wizard.css';
 import { getHotelById } from '@aidahos/db';
 import { canAccessHotel, getSession } from '@/lib/auth';
 import { getLang } from '@/lib/i18n-server';
@@ -10,6 +12,7 @@ import { L } from '@/lib/i18n';
 import { HotelSidebar } from '@/components/console/hotel-sidebar';
 import { ConsoleHeader } from '@/components/console/console-header';
 import { LangProvider } from '@/components/console/lang-provider';
+import { RouteProgress } from '@/components/console/route-progress';
 
 function initialsOf(name: string) {
   return (
@@ -48,6 +51,7 @@ export default async function HotelLayout({
 
   return (
     <LangProvider initial={lang}>
+      <RouteProgress />
       <div className="app">
         <HotelSidebar hotelId={hotel.id} hotelName={hotel.name} sub={roleLabel} isAdmin={session.user.role === 'admin'} />
         <div className="main">

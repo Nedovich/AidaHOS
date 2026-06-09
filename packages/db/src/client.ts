@@ -28,12 +28,12 @@ export async function withTenant<T>(
   fn: (tx: Database) => Promise<T>,
 ): Promise<T> {
   return db.transaction(async (tx) => {
-    await tx.execute(sql`select set_config('app.current_role', ${ctx.role}, true)`);
+    // All three GUCs in ONE round trip — the remote DB makes each round trip costly,
+    // so collapsing 3 set_config statements into one saves two round trips per call.
     await tx.execute(
-      sql`select set_config('app.current_hotel', ${ctx.hotelId ?? ''}, true)`,
-    );
-    await tx.execute(
-      sql`select set_config('app.current_hotel_group', ${ctx.hotelGroupId ?? ''}, true)`,
+      sql`select set_config('app.current_role', ${ctx.role}, true),
+                 set_config('app.current_hotel', ${ctx.hotelId ?? ''}, true),
+                 set_config('app.current_hotel_group', ${ctx.hotelGroupId ?? ''}, true)`,
     );
     return fn(tx as unknown as Database);
   });

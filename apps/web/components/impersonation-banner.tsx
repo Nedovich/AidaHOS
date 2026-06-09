@@ -1,6 +1,7 @@
 import { getSession } from '@/lib/auth';
 import { getLang } from '@/lib/i18n-server';
 import { L } from '@/lib/i18n';
+import { SubmitButton } from '@/components/console/submit-button';
 import { stopImpersonate } from '@/app/(super)/actions';
 
 /** Shown app-wide while a super_admin is impersonating another user. */
@@ -38,8 +39,7 @@ export async function ImpersonationBanner() {
         {L(['olarak görüntülüyorsunuz.', 'view.'], lang)}
       </span>
       <form action={stopImpersonate} style={{ marginLeft: 'auto' }}>
-        <button
-          type="submit"
+        <SubmitButton
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -54,7 +54,7 @@ export async function ImpersonationBanner() {
           }}
         >
           {L(['Taklidi bitir', 'Stop impersonating'], lang)}
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

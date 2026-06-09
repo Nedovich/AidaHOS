@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Bell, Moon, Search, Sun } from 'lucide-react';
 import { L, type Lang } from '@/lib/i18n';
 import { setLangCookie, useLang } from './lang-provider';
+import { MobileNavToggle } from './mobile-nav-toggle';
 
 export function ConsoleHeader({
   initials,
@@ -41,6 +42,7 @@ export function ConsoleHeader({
 
   return (
     <header className="header">
+      <MobileNavToggle />
       <div className="header__title">
         <span className="header__crumb">{crumb}</span>
         <span className="header__h">{title}</span>

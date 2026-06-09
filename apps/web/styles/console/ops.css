@@ -5,31 +5,8 @@
    Loads AFTER tokens.css + app.css + settings.css.
    ============================================================ */
 
-/* ---- accent override: indigo "operator" identity ---- */
-[data-theme="light"] {
-  --accent: #5457D6;
-  --accent-hover: #4548C2;
-  --accent-press: #3A3CA8;
-  --accent-soft: #ECEDFC;
-  --accent-soft-2: #DCDDF8;
-  --accent-line: #CDCEF2;
-  --accent-contrast: #FFFFFF;
-  --chart-1: #5457D6;
-  --chart-2: #8E90EC;
-  --ring: 0 0 0 3px rgba(84,87,214,.16);
-}
-[data-theme="dark"] {
-  --accent: #9092F2;
-  --accent-hover: #A8AAF6;
-  --accent-press: #7B7DE6;
-  --accent-soft: rgba(144,146,242,.14);
-  --accent-soft-2: rgba(144,146,242,.22);
-  --accent-line: rgba(144,146,242,.34);
-  --accent-contrast: #0B0C28;
-  --chart-1: #9092F2;
-  --chart-2: #B6B7F7;
-  --ring: 0 0 0 3px rgba(144,146,242,.22);
-}
+/* The indigo accent override lives in ops-accent.css (super-admin layout only), so
+   this file's component styles are safely shared by the teal hotel console too. */
 
 /* ---- operator brandmark + sidebar ---- */
 .brandmark.ops { background: linear-gradient(145deg, #6E70E8, #4B4DC6); box-shadow: 0 2px 8px -1px rgba(84,87,214,.5), inset 0 1px 0 rgba(255,255,255,.22); }
@@ -146,3 +123,71 @@
 
 @media (max-width: 1100px) { .plan-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 860px)  { .plan-grid { grid-template-columns: 1fr; } }
+
+/* ---- Loading skeleton (route loading.tsx) ---- */
+.sk {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-3);
+  border-radius: 8px;
+}
+.sk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--text-3) 22%, transparent),
+    transparent
+  );
+  animation: sk-shimmer 1.25s ease-in-out infinite;
+}
+@keyframes sk-shimmer { 100% { transform: translateX(100%); } }
+
+/* ---- danger button ---- */
+.btn--danger { background: var(--danger); color: #fff; border-color: transparent; }
+.btn--danger:hover { background: color-mix(in srgb, var(--danger) 88%, #000); }
+.btn--ghost-danger { background: transparent; color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); }
+.btn--ghost-danger:hover { background: var(--danger-soft); }
+
+/* ---- row actions dropdown menu ---- */
+.rowmenu { position: relative; display: inline-flex; }
+.rowmenu__pop {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 40; min-width: 168px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+  box-shadow: var(--shadow-md); padding: 5px; display: flex; flex-direction: column; gap: 2px;
+}
+/* High specificity + box reset: the item lives inside .rowact, whose
+   `.rowact button { width:30px;height:30px;display:grid }` would otherwise squash it. */
+.rowmenu__pop .rowmenu__item {
+  display: flex; align-items: center; justify-content: flex-start; place-items: initial;
+  gap: 9px; width: 100%; height: auto; min-height: 0; text-align: left; white-space: nowrap;
+  padding: 8px 10px; border: none; background: none; border-radius: var(--r-sm);
+  font: inherit; font-size: var(--text-sm); color: var(--text); cursor: pointer; transition: var(--transition);
+}
+.rowmenu__pop .rowmenu__item svg { width: 15px; height: 15px; flex-shrink: 0; }
+.rowmenu__pop .rowmenu__item:hover { background: var(--surface-2); color: var(--text); }
+.rowmenu__pop .rowmenu__item.danger { color: var(--danger); }
+.rowmenu__pop .rowmenu__item.danger:hover { background: var(--danger-soft); color: var(--danger); }
+
+/* ---- confirm modal ---- */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
+  background: rgba(8, 15, 20, .5); backdrop-filter: blur(2px); padding: var(--sp-4);
+  animation: modal-fade .14s ease;
+}
+.modal {
+  width: 100%; max-width: 440px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-lg, 0 24px 60px -12px rgba(0,0,0,.4));
+  overflow: hidden; animation: modal-pop .16s ease;
+}
+.modal__head { display: flex; align-items: flex-start; gap: 13px; padding: var(--sp-5) var(--sp-5) 0; }
+.modal__ico { width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0; display: grid; place-items: center; background: var(--danger-soft); color: var(--danger); }
+.modal__title { font-size: var(--text-lg); font-weight: 600; letter-spacing: -.01em; }
+.modal__sub { font-size: var(--text-sm); color: var(--text-2); margin-top: 3px; line-height: 1.5; }
+.modal__body { padding: var(--sp-5); }
+.modal__foot { display: flex; justify-content: flex-end; gap: 10px; padding: 0 var(--sp-5) var(--sp-5); }
+@keyframes modal-fade { from { opacity: 0; } }
+@keyframes modal-pop { from { opacity: 0; transform: translateY(8px) scale(.98); } }

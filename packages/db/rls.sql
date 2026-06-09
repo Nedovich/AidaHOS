@@ -60,3 +60,43 @@ do $$ begin
     grant select, insert, update, delete on hotel_simulation to aidahos_app;
   end if;
 end $$;
+
+-- ---- surveys (group-scoped, same shape as hotels) ----
+-- admin AND user carry app.current_hotel_group (resolveTenantContext sets it for both),
+-- so a single hotel_group_id predicate covers the whole console.
+alter table surveys enable row level security;
+drop policy if exists surveys_rls on surveys;
+create policy surveys_rls on surveys
+  for all to public
+  using (
+    current_setting('app.current_role', true) = 'super_admin'
+    or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid
+  )
+  with check (
+    current_setting('app.current_role', true) = 'super_admin'
+    or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid
+  );
+
+-- ---- survey_responses (group-scoped via denormalized hotel_group_id) ----
+-- Guest submissions are inserted by the guest app inside a withTenant({role:'admin',
+-- hotelGroupId}) transaction, which satisfies WITH CHECK below.
+alter table survey_responses enable row level security;
+drop policy if exists survey_responses_rls on survey_responses;
+create policy survey_responses_rls on survey_responses
+  for all to public
+  using (
+    current_setting('app.current_role', true) = 'super_admin'
+    or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid
+  )
+  with check (
+    current_setting('app.current_role', true) = 'super_admin'
+    or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid
+  );
+
+-- Least-privilege grants for the runtime role (owner runs this file).
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'aidahos_app') then
+    grant select, insert, update, delete on surveys to aidahos_app;
+    grant select, insert, update, delete on survey_responses to aidahos_app;
+  end if;
+end $$;

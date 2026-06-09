@@ -37,9 +37,32 @@ const roles = {
  * `allowSignUp` is false everywhere except the seed/bootstrap script, which needs
  * to create the very first super_admin before any admin exists to provision users.
  */
+/** Origins allowed to call the auth API (CSRF). Set-once: localhost + the WireGuard
+ *  dev IP + anything in TRUSTED_ORIGINS (comma-separated) + the BETTER_AUTH_URL origin.
+ *  The client is same-origin, so adding a new host = one env entry, no code change. */
+function buildTrustedOrigins(): string[] {
+  const safeOrigin = (u?: string) => {
+    if (!u) return null;
+    try {
+      return new URL(u).origin;
+    } catch {
+      return null;
+    }
+  };
+  const list = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://10.8.0.2:3000', // WireGuard dev (phone ↔ macbook)
+    safeOrigin(process.env.BETTER_AUTH_URL),
+    ...(process.env.TRUSTED_ORIGINS?.split(',').map((s) => s.trim()) ?? []),
+  ].filter((x): x is string => Boolean(x));
+  return Array.from(new Set(list));
+}
+
 export function createAuth({ allowSignUp = false }: { allowSignUp?: boolean } = {}) {
   return betterAuth({
     baseURL: process.env.BETTER_AUTH_URL,
+    trustedOrigins: buildTrustedOrigins(),
     secret: process.env.BETTER_AUTH_SECRET,
     // Our PK columns are uuid → have BetterAuth generate uuids for all its tables.
     advanced: {

@@ -1,0 +1,30 @@
+/* ============================================================
+   AIDA Operations — accent override: indigo "operator" identity.
+   Scoped to `.console-ops` (set on the super-admin layout's .app), so the operator
+   console reads indigo while the hotel console keeps the default teal brand accent —
+   independent of CSS bundling order.
+   ============================================================ */
+html[data-theme="light"] .console-ops {
+  --accent: #5457D6;
+  --accent-hover: #4548C2;
+  --accent-press: #3A3CA8;
+  --accent-soft: #ECEDFC;
+  --accent-soft-2: #DCDDF8;
+  --accent-line: #CDCEF2;
+  --accent-contrast: #FFFFFF;
+  --chart-1: #5457D6;
+  --chart-2: #8E90EC;
+  --ring: 0 0 0 3px rgba(84,87,214,.16);
+}
+html[data-theme="dark"] .console-ops {
+  --accent: #9092F2;
+  --accent-hover: #A8AAF6;
+  --accent-press: #7B7DE6;
+  --accent-soft: rgba(144,146,242,.14);
+  --accent-soft-2: rgba(144,146,242,.22);
+  --accent-line: rgba(144,146,242,.34);
+  --accent-contrast: #0B0C28;
+  --chart-1: #9092F2;
+  --chart-2: #B6B7F7;
+  --ring: 0 0 0 3px rgba(144,146,242,.22);
+}

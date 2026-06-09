@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import '@/styles/console/tokens.css';
 import '@/styles/console/app.css';
 import '@/styles/console/ops.css';
+import '@/styles/console/ops-accent.css';
 import '@/styles/console/forms.css';
 import { getSession } from '@/lib/auth';
 import { getLang } from '@/lib/i18n-server';
@@ -9,6 +10,7 @@ import { L } from '@/lib/i18n';
 import { ConsoleSidebar } from '@/components/console/console-sidebar';
 import { ConsoleHeader } from '@/components/console/console-header';
 import { LangProvider } from '@/components/console/lang-provider';
+import { RouteProgress } from '@/components/console/route-progress';
 
 function initialsOf(name: string) {
   return (
@@ -34,7 +36,8 @@ export default async function SuperLayout({ children }: { children: React.ReactN
 
   return (
     <LangProvider initial={lang}>
-      <div className="app">
+      <RouteProgress />
+      <div className="app console-ops">
         <ConsoleSidebar operator={{ name, role, initials }} />
         <div className="main">
           <ConsoleHeader initials={initials} crumb="AIDA Operations" title={L(role, lang)} />

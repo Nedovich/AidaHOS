@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { pmsType, tenantStatus } from './enums';
+import { pmsType, radiusBackendType, tenantStatus } from './enums';
 
 // NOTE: RLS for these tenant tables is NOT defined here — drizzle-kit push does not
 // reliably serialize policy USING/WITH CHECK expressions. RLS lives in rls.sql and is
@@ -51,10 +51,18 @@ export const hotels = pgTable('hotels', {
   // PMS / on-prem
   pmsType: pmsType('pms_type').notNull().default('none'),
 
-  // Network provisioning
+  // RADIUS backend: our hosted FreeRADIUS, or the hotel's own local MikroTik.
+  radiusBackend: radiusBackendType('radius_backend').notNull().default('central_freeradius'),
+
+  // Network provisioning (central_freeradius): MikroTik gateway + FreeRADIUS nas client
   mikrotikIp: text('mikrotik_ip'),
   nasSecret: text('nas_secret'),
   exitIp: text('exit_ip'),
+
+  // MikroTik RouterOS v7 REST API (local_mikrotik): host = tailscaleHost ?? tailscaleIp ?? mikrotikIp
+  mikrotikApiUser: text('mikrotik_api_user'),
+  mikrotikApiPassword: text('mikrotik_api_password'),
+  mikrotikApiPort: integer('mikrotik_api_port'),
 
   // Tailscale reachability for the on-prem boxes
   tailscaleHost: text('tailscale_host'),

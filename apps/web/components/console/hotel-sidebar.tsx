@@ -54,7 +54,7 @@ const NAV: { group: Pair; items: Item[] }[] = [
   {
     group: ['Etkileşim', 'Engagement'],
     items: [
-      { id: 'surveys', icon: ClipboardList, label: ['Anketler', 'Surveys'], soon: true },
+      { id: 'surveys', icon: ClipboardList, label: ['Anketler', 'Surveys'] },
       { id: 'notifs', icon: Bell, label: ['Bildirimler', 'Notifications'], soon: true },
       { id: 'ai', icon: Sparkles, label: ['AI Asistan', 'AI Assistant'], soon: true },
       { id: 'events', icon: Calendar, label: ['Etkinlikler', 'Events'], soon: true },
@@ -124,7 +124,7 @@ export function HotelSidebar({
                 );
               }
               const href = `${base}/${it.id}`;
-              const active = pathname === href;
+              const active = pathname === href || pathname.startsWith(`${href}/`);
               return (
                 <Link key={it.id} href={href} className={`nav__item${active ? ' active' : ''}`}>
                   <Icon size={17} />

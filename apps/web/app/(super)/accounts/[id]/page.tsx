@@ -7,6 +7,7 @@ import { getLang } from '@/lib/i18n-server';
 import { L, type Lang } from '@/lib/i18n';
 import { FEATURE_LABELS, fmtK, getPlan } from '@/lib/plans';
 import { AccountForm } from '@/components/console/account-form';
+import { SubmitButton } from '@/components/console/submit-button';
 import { impersonate } from '../../actions';
 import { updateAccountAction } from '../actions';
 
@@ -123,9 +124,9 @@ export default async function AccountDetail({
         <div className="page-hero__actions">
           {adminMember && (group.status === 'active' || group.status === 'suspended') && (
             <form action={impersonate.bind(null, adminMember.id)}>
-              <button className="btn btn--ghost" type="submit">
+              <SubmitButton className="btn btn--ghost">
                 <ExternalLink size={16} /> {L(['Hesaba gir', 'Impersonate'], lang)}
-              </button>
+              </SubmitButton>
             </form>
           )}
           <Link className="btn btn--primary" href={`/accounts/${group.id}?tab=edit`}>

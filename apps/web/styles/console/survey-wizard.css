@@ -1,0 +1,95 @@
+/* ============================================================
+   AIDA — Survey wizard & workspace components
+   ============================================================ */
+
+/* secondary workspace subnav */
+.subnav { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: var(--sp-6); overflow-x: auto; }
+.subnav__i { padding: 11px 15px; font-size: var(--text-base); font-weight: 500; color: var(--text-2); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; display: flex; align-items: center; gap: 8px; white-space: nowrap; transition: var(--transition); }
+.subnav__i svg { width: 16px; height: 16px; opacity: .8; }
+.subnav__i:hover { color: var(--text); }
+.subnav__i.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.subnav__i.on svg { opacity: 1; }
+.subnav__sp { flex: 1; }
+
+/* wizard stepper breadcrumb */
+.wsteps { display: flex; align-items: center; gap: 12px; margin-bottom: var(--sp-6); flex-wrap: wrap; }
+.wsteps__i { display: flex; align-items: center; gap: 9px; font-size: var(--text-sm); font-weight: 500; color: var(--text-3); cursor: pointer; white-space: nowrap; }
+.wsteps__i .n { width: 23px; height: 23px; border-radius: 99px; border: 1.5px solid var(--border-strong); display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--text-3); flex-shrink: 0; }
+.wsteps__i .n svg { width: 12px; height: 12px; }
+.wsteps__i.done { color: var(--text-2); }
+.wsteps__i.done .n { background: var(--success); border-color: var(--success); color: #fff; }
+.wsteps__i.on { color: var(--accent); }
+.wsteps__i.on .n { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+.wsteps__sep { width: 26px; height: 1.5px; background: var(--border-strong); flex-shrink: 0; }
+
+/* step badge */
+.stepbadge { display: inline-block; font-size: var(--text-xs); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); padding: 5px 12px; border-radius: 99px; margin-bottom: 11px; white-space: nowrap; }
+
+/* localization / info banner */
+.infobar { display: flex; gap: 12px; padding: 14px 16px; border-radius: var(--r-md); background: var(--accent-soft); border: 1px solid var(--accent-line); margin-bottom: var(--sp-6); }
+.infobar__ico { color: var(--accent); flex-shrink: 0; }
+.infobar__ico svg { width: 18px; height: 18px; }
+.infobar__t { font-size: var(--text-sm); color: var(--text); line-height: 1.5; }
+.infobar__t b { font-weight: 600; }
+
+/* template card grid */
+.tmpl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-5); }
+.tmpl { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); padding: var(--sp-6); display: flex; flex-direction: column; box-shadow: var(--shadow-sm); transition: var(--transition); }
+.tmpl:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); transform: translateY(-2px); }
+.tmpl__top { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 16px; }
+.tmpl__ico { width: 48px; height: 48px; border-radius: 13px; display: grid; place-items: center; flex-shrink: 0; }
+.tmpl__ico svg { width: 23px; height: 23px; }
+.tmpl__cat { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--text-3); }
+.tmpl__name { font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.02em; margin-top: 4px; color: var(--text); }
+.tmpl__desc { font-size: var(--text-base); color: var(--text-2); line-height: 1.55; flex: 1; margin-bottom: var(--sp-5); }
+.tmpl .btn { justify-content: center; width: 100%; }
+
+/* big form fields */
+.fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-6) var(--sp-8); align-items: start; }
+.flabel { font-size: var(--text-sm); font-weight: 600; color: var(--text-2); margin-bottom: 8px; display: block; }
+.finput, .fselect { width: 100%; height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); font-family: inherit; font-size: var(--text-base); color: var(--text); transition: var(--transition); }
+.finput:hover, .fselect:hover { border-color: var(--border-strong); }
+.finput::placeholder { color: var(--text-3); }
+.fselect { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+.fselect svg { width: 16px; height: 16px; color: var(--text-3); }
+.ftextarea { width: 100%; min-height: 96px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); font-family: inherit; font-size: var(--text-base); color: var(--text); resize: none; line-height: 1.5; }
+.fhint { font-size: var(--text-xs); color: var(--text-3); margin-top: 7px; }
+
+/* surveyjs embed frame (chrome only — library renders inside) */
+.sjs { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--surface); box-shadow: var(--shadow-sm); }
+.sjs__tabs { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--border); padding: 0 var(--sp-4); background: var(--surface-2); }
+.sjs__tab { padding: 12px 14px; font-size: var(--text-sm); font-weight: 500; color: var(--text-2); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; }
+.sjs__tab.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.sjs__tools { margin-left: auto; display: flex; gap: 6px; padding: 7px 0; }
+.sjs__body { display: grid; grid-template-columns: 52px 1fr 300px; min-height: 460px; }
+.sjs__toolbox { border-right: 1px solid var(--border); padding: 14px 0; display: flex; flex-direction: column; align-items: center; gap: 14px; background: var(--surface-2); }
+.sjs__tool { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: var(--text-3); }
+.sjs__tool:first-child { color: var(--accent); background: var(--accent-soft); }
+.sjs__canvas { padding: 32px; background: var(--surface-3); display: flex; flex-direction: column; gap: 18px; }
+.sjs__props { border-left: 1px solid var(--border); padding: 18px; background: var(--surface); }
+.sjs__embed-tag { position: absolute; top: 12px; right: 14px; }
+.sjs__title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
+.sjs__subtitle { font-size: var(--text-base); color: var(--text-3); margin-top: 4px; }
+.sjs__page { background: var(--surface); border: 1.5px dashed var(--border-strong); border-radius: var(--r-md); padding: 30px; text-align: center; color: var(--text-3); font-size: var(--text-base); }
+.sjs__addq { display: flex; align-items: center; justify-content: center; gap: 8px; height: 50px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border); color: var(--success); font-weight: 600; box-shadow: var(--shadow-sm); }
+.sjs__prop-field { margin-bottom: 16px; }
+.sjs__license { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px; background: color-mix(in srgb, var(--success) 14%, var(--surface)); color: var(--success); font-size: var(--text-sm); font-weight: 500; border-top: 1px solid var(--border); }
+.sjs__license svg { width: 15px; height: 15px; }
+
+/* toggle setting cards (publish access controls) */
+.tcard { border: 1px solid var(--border); border-radius: var(--r-md); padding: 15px 16px; background: var(--surface); }
+.tcard + .tcard { margin-top: 14px; }
+.tcard__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.tcard__t { font-size: var(--text-base); font-weight: 600; color: var(--text); line-height: 1.4; }
+.tcard__d { font-size: var(--text-sm); color: var(--text-2); margin-top: 9px; line-height: 1.5; }
+.tcard__warn { font-size: var(--text-sm); color: var(--warning); font-weight: 500; margin-top: 9px; line-height: 1.45; }
+
+/* wizard footer */
+.wfooter { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); margin-top: var(--sp-6); padding-top: var(--sp-5); border-top: 1px solid var(--border-faint); }
+.wfooter__note { font-size: var(--text-sm); color: var(--text-3); }
+
+@media (max-width: 1100px) {
+  .tmpl-grid, .fgrid { grid-template-columns: 1fr; }
+  .sjs__body { grid-template-columns: 52px 1fr; }
+  .sjs__props { display: none; }
+}

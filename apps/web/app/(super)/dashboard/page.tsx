@@ -5,6 +5,7 @@ import { getSession, withTenantDb } from '@/lib/auth';
 import { getLang } from '@/lib/i18n-server';
 import { L } from '@/lib/i18n';
 import { SignOutButton } from '@/components/sign-out-button';
+import { SubmitButton } from '@/components/console/submit-button';
 import { impersonate } from '../actions';
 
 export default async function SuperDashboard() {
@@ -13,10 +14,14 @@ export default async function SuperDashboard() {
   if (session.user.role !== 'super_admin') redirect('/');
 
   const lang = await getLang();
-  const hotels = (await withTenantDb((tx) => tx.select().from(schema.hotels))) ?? [];
-  const groups = (await withTenantDb((tx) => tx.select().from(schema.hotelGroups))) ?? [];
-  const admins = await listUsersByRole('admin');
-  const audit = await recentAudit(6);
+  // Run independent reads concurrently (each is a remote round trip). hotels+groups
+  // share one tenant transaction; admins + audit run in parallel alongside.
+  const [tenantRows, admins, audit] = await Promise.all([
+    withTenantDb((tx) => Promise.all([tx.select().from(schema.hotels), tx.select().from(schema.hotelGroups)])),
+    listUsersByRole('admin'),
+    recentAudit(6),
+  ]);
+  const [hotels, groups] = tenantRows ?? [[], []];
 
   const kpis = [
     { icon: Building2, label: L(['Otel Grupları', 'Hotel Groups'], lang), value: groups.length },
@@ -125,9 +130,9 @@ export default async function SuperDashboard() {
                   </div>
                 </div>
                 <form action={impersonate.bind(null, u.id)}>
-                  <button className="btn btn--subtle btn--sm" type="submit">
+                  <SubmitButton className="btn btn--subtle btn--sm">
                     {L(['Taklit et', 'Impersonate'], lang)}
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             ))}
