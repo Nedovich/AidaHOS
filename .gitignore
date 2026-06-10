@@ -32,3 +32,6 @@ __pycache__/
 
 # misc
 coverage/
+
+#claude design
+design/

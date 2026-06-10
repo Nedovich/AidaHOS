@@ -40,7 +40,7 @@ const NAV: { group: Pair; items: Item[] }[] = [
     items: [
       { id: 'hotels', icon: Building2, label: ['Oteller', 'Hotels'], adminOnly: true },
       { id: 'users', icon: UserCog, label: ['Kullanıcılar', 'Users'], adminOnly: true },
-      { id: 'portal', icon: Layers, label: ['Misafir Portalı', 'Guest Portal'], soon: true },
+      { id: 'portal', icon: Layers, label: ['Misafir Portalı', 'Guest Portal'] },
     ],
   },
   {

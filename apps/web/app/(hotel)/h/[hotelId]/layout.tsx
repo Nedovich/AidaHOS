@@ -5,6 +5,7 @@ import '@/styles/console/ops.css';
 import '@/styles/console/forms.css';
 import '@/styles/console/survey.css';
 import '@/styles/console/survey-wizard.css';
+import '@/styles/console/portal.css';
 import { getHotelById } from '@aidahos/db';
 import { canAccessHotel, getSession } from '@/lib/auth';
 import { getLang } from '@/lib/i18n-server';
