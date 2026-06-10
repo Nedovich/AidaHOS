@@ -1,6 +1,13 @@
-// Check-out sweep: revoke RADIUS access for stays whose check-out has passed, so the guest
-// can no longer authenticate (Session-Timeout already drops the live session at check-out;
-// this stops any re-login). Run on a schedule (cron / Coolify scheduled task), e.g. hourly:
+// OPTIONAL housekeeping — NOT required for access control. The authoritative gate is the
+// login-time PMS check in loginGuest: every re-login re-queries the PMS, so a past-check-out
+// reservation is rejected ('expired') and a renewed/extended one is allowed again — no cron
+// needed. Session-Timeout (set at login) already drops the live session at check-out.
+//
+// This sweep only matters as defense-in-depth for two edge cases:
+//   (a) a hotel whose MikroTik profile uses `login-by=cookie` (device could auto-reauth via
+//       cookie, bypassing the portal + window check) — our aida profile uses http-pap, so N/A;
+//   (b) KVKK/retention hygiene — purge stale radcheck/radreply rows after the stay ends.
+// If you do want it, run on a schedule (cron / Coolify scheduled task):
 //   node packages/db/scripts/sweep-stays.mjs [graceHours=12]
 //
 // Reads guest_stays + hotels from the app DB (owner role, bypasses RLS) to build the expired
