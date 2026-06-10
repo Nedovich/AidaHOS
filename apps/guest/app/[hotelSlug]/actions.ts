@@ -9,9 +9,12 @@ import { deriveScore } from '@/lib/score';
 
 export type LoginResult =
   | { ok: true; guestName: string | null; username: string; survey: SurveyOffer | null }
-  | { ok: false; error: 'invalid' | 'not_found' | 'provisioning' };
+  | { ok: false; error: 'invalid' | 'not_found' | 'provisioning' | 'expired' | 'not_started' };
 
 const DOB = /^\d{8}$/; // DDMMYYYY
+// Internet is allowed only within the stay window. Grace past the stored check-out date
+// so a midnight-stored check-out still covers the usual ~noon hotel check-out.
+const CHECKOUT_GRACE_MS = 12 * 60 * 60 * 1000;
 
 /**
  * Captive-portal guest login.
@@ -31,6 +34,18 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
   const res = await verifyGuest(hotel.id, roomNo, birthDate);
   if (!res.ok) return { ok: false, error: 'invalid' };
 
+  // Stay window: internet access is allowed only between check-in and check-out. Block
+  // (and don't provision) outside it — so a guest can't get online before arrival or
+  // after departure. The check-out sweep removes lingering creds; this stops new logins.
+  const now = Date.now();
+  const checkInMs = res.guest.checkIn ? new Date(res.guest.checkIn).getTime() : null;
+  const checkOutMs = res.guest.checkOut ? new Date(res.guest.checkOut).getTime() : null;
+  if (checkInMs != null && now < checkInMs) return { ok: false, error: 'not_started' };
+  if (checkOutMs != null && now > checkOutMs + CHECKOUT_GRACE_MS) return { ok: false, error: 'expired' };
+  // Cap the RADIUS session to the remaining stay so the gateway drops the guest at checkout.
+  const sessionTimeoutSeconds =
+    checkOutMs != null ? Math.max(60, Math.floor((checkOutMs + CHECKOUT_GRACE_MS - now) / 1000)) : null;
+
   const username = `${hotel.slug}-${roomNo}`;
   try {
     if (hotel.radiusBackend === 'local_mikrotik') {
@@ -39,7 +54,7 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
       // don't provision into our FreeRADIUS (that would be the wrong RADIUS).
       console.warn(`[guest] local MikroTik provisioning deferred for ${username} (hotel ${hotel.slug})`);
     } else if (isRadiusConfigured()) {
-      await upsertRadiusUser({ username, password: birthDate });
+      await upsertRadiusUser({ username, password: birthDate, sessionTimeoutSeconds });
     }
   } catch (e) {
     console.error('guest RADIUS provisioning failed:', e);

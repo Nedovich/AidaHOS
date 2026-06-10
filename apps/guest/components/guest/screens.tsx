@@ -91,7 +91,11 @@ export function Login({ brand, onLogin, loginAction, portal, hotelSlug }: { bran
             ? L({ en: 'Hotel not found.', tr: 'Otel bulunamadı.', de: 'Hotel nicht gefunden.', ru: 'Отель не найден.' }, lang)
             : res.error === 'provisioning'
               ? L({ en: 'Could not connect you. Please try again.', tr: 'Bağlanılamadı. Lütfen tekrar deneyin.', de: 'Verbindung fehlgeschlagen. Bitte erneut versuchen.', ru: 'Не удалось подключить. Повторите попытку.' }, lang)
-              : L({ en: 'Room number or birth date is incorrect.', tr: 'Oda numarası veya doğum tarihi hatalı.', de: 'Zimmernummer oder Geburtsdatum ist falsch.', ru: 'Неверный номер комнаты или дата рождения.' }, lang),
+              : res.error === 'expired'
+                ? L({ en: 'Your stay has ended, so internet access is closed. Please contact reception.', tr: 'Konaklamanız sona erdiği için internet erişimi kapalı. Lütfen resepsiyona başvurun.', de: 'Ihr Aufenthalt ist beendet, der Internetzugang ist geschlossen. Bitte wenden Sie sich an die Rezeption.', ru: 'Ваше пребывание завершено, доступ в интернет закрыт. Обратитесь на ресепшен.' }, lang)
+                : res.error === 'not_started'
+                  ? L({ en: 'Your reservation has not started yet. Internet access opens at check-in.', tr: 'Rezervasyonunuz henüz başlamadı. İnternet erişimi giriş tarihinde açılır.', de: 'Ihre Reservierung hat noch nicht begonnen. Der Internetzugang öffnet beim Check-in.', ru: 'Ваше бронирование ещё не началось. Доступ в интернет откроется при заселении.' }, lang)
+                  : L({ en: 'Room number or birth date is incorrect.', tr: 'Oda numarası veya doğum tarihi hatalı.', de: 'Zimmernummer oder Geburtsdatum ist falsch.', ru: 'Неверный номер комнаты или дата рождения.' }, lang),
         );
       } else {
         // No backend bound (static preview) — fall back to the visual mock flow.

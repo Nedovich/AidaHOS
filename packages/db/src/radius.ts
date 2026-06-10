@@ -144,21 +144,56 @@ export async function getRadiusUser(username: string) {
  *   username = `${hotel.slug}-${roomNo}`  (globally unique across hotels)
  *   password = birthDate (DDMMYYYY)
  */
-export async function upsertRadiusUser(input: { username: string; password: string }): Promise<{ created: boolean }> {
+export async function upsertRadiusUser(input: {
+  username: string;
+  password: string;
+  /**
+   * Seconds until the reservation's check-out. Written as a `Session-Timeout` reply
+   * attribute so the MikroTik auto-disconnects the guest when the stay ends. Omit/null
+   * to leave it unset (no time cap).
+   */
+  sessionTimeoutSeconds?: number | null;
+}): Promise<{ created: boolean }> {
   const sql = radiusSql();
   const existing = await sql<{ id: number }[]>`
     select id from radcheck
     where username = ${input.username} and attribute = 'Cleartext-Password' limit 1`;
+  const created = existing.length === 0;
   if (existing.length) {
     await sql`
       update radcheck set value = ${input.password}, op = ':='
       where username = ${input.username} and attribute = 'Cleartext-Password'`;
-    return { created: false };
+  } else {
+    await sql`
+      insert into radcheck (username, attribute, op, value)
+      values (${input.username}, 'Cleartext-Password', ':=', ${input.password})`;
   }
-  await sql`
-    insert into radcheck (username, attribute, op, value)
-    values (${input.username}, 'Cleartext-Password', ':=', ${input.password})`;
-  return { created: true };
+
+  // Session-Timeout (reply): caps the session to the remaining stay so the gateway
+  // drops the guest at check-out. Recomputed on every login.
+  if (input.sessionTimeoutSeconds != null && input.sessionTimeoutSeconds > 0) {
+    const val = String(Math.floor(input.sessionTimeoutSeconds));
+    const ex = await sql<{ id: number }[]>`
+      select id from radreply where username = ${input.username} and attribute = 'Session-Timeout' limit 1`;
+    if (ex.length) {
+      await sql`update radreply set value = ${val}, op = ':=' where username = ${input.username} and attribute = 'Session-Timeout'`;
+    } else {
+      await sql`insert into radreply (username, attribute, op, value) values (${input.username}, 'Session-Timeout', ':=', ${val})`;
+    }
+  }
+  return { created };
+}
+
+/**
+ * Revoke a guest's RADIUS access — deletes their radcheck credential + radreply attrs so
+ * the gateway can no longer authenticate them (used when a stay ends / on check-out sweep).
+ * Does not touch radacct (accounting history). Returns rows removed from radcheck.
+ */
+export async function deleteRadiusUser(username: string): Promise<{ removed: number }> {
+  const sql = radiusSql();
+  const del = await sql`delete from radcheck where username = ${username} returning id`;
+  await sql`delete from radreply where username = ${username}`;
+  return { removed: del.length };
 }
 
 export interface RadAcctSession {

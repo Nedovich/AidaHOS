@@ -14,11 +14,19 @@ if (!url) {
 // Mirrors the real PMS view (RMOS dbo.vwparali). Fields:
 // roomNo, birthDate(DDMMYYYY), firstName, lastName, checkIn, checkOut,
 // agency, phone, email, country, roomType, currency
+// Dates are relative to "today" so the stay-window rule is testable: room 250 is an
+// already-checked-out stay (login should be blocked), the rest are currently in-house.
+const dayStr = (offset) => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0, 10);
+};
 const ROOMS = [
-  ['101', '08051990', 'Ayşe', 'Yılmaz', '2026-06-04', '2026-06-10', 'EXPEDIA NRF', '05321234567', 'ayse.yilmaz@example.com', 'TR', 'STD', 'TL'],
-  ['102', '15071985', 'Mehmet', 'Demir', '2026-06-05', '2026-06-09', 'TRIP.COM', '05335556677', 'mehmet.demir@example.com', 'TR', 'EKO', 'TL'],
-  ['205', '23111978', 'Elena', 'Petrova', '2026-06-03', '2026-06-12', 'OSTROVOK.RU', '+79112527362', 'elena.petrova@example.com', 'RUS', 'CRN', 'EURO'],
-  ['250', '01011990', 'John', 'Carter', '2026-06-06', '2026-06-08', 'AGODA B2B', '+447700900123', 'john.carter@example.com', 'USA', 'ACT', 'USD'],
+  ['101', '08051990', 'Ayşe', 'Yılmaz', dayStr(-2), dayStr(3), 'EXPEDIA NRF', '05321234567', 'ayse.yilmaz@example.com', 'TR', 'STD', 'TL'],
+  ['102', '15071985', 'Mehmet', 'Demir', dayStr(-1), dayStr(2), 'TRIP.COM', '05335556677', 'mehmet.demir@example.com', 'TR', 'EKO', 'TL'],
+  ['205', '23111978', 'Elena', 'Petrova', dayStr(-3), dayStr(5), 'OSTROVOK.RU', '+79112527362', 'elena.petrova@example.com', 'RUS', 'CRN', 'EURO'],
+  ['250', '01011990', 'John', 'Carter', dayStr(-7), dayStr(-2), 'AGODA B2B', '+447700900123', 'john.carter@example.com', 'USA', 'ACT', 'USD'],
 ];
 
 const sql = postgres(url, { ssl: 'prefer', max: 1, connect_timeout: 15, onnotice: () => {} });

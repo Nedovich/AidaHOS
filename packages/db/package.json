@@ -13,6 +13,7 @@
     "apply-rls": "node scripts/apply-rls.mjs",
     "seed:simulation": "node scripts/seed-simulation.mjs",
     "seed:surveys": "node scripts/seed-surveys.mjs",
+    "sweep:stays": "node scripts/sweep-stays.mjs",
     "studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit"
   },
