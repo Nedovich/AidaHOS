@@ -1,7 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { createSurveyResponse, findHotelBySlug, getSurveyById, isRadiusConfigured, upsertRadiusUser } from '@aidahos/db';
+import { createSurveyResponse, findHotelBySlug, getSurveyById, isRadiusConfigured, upsertGuestStay, upsertRadiusUser } from '@aidahos/db';
 import { verifyGuest } from '@/lib/verify';
 import { GUEST_COOKIE } from '@/lib/constants';
 import { defaultSurveyOffer, type SurveyOffer } from '@/lib/survey-offer';
@@ -44,6 +44,30 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
   } catch (e) {
     console.error('guest RADIUS provisioning failed:', e);
     return { ok: false, error: 'provisioning' };
+  }
+
+  // Capture the verified reservation into our store (guest_stays). The hotel collects
+  // signed KVKK consent at check-in; the PMS stays the source of truth, this is our copy.
+  try {
+    await upsertGuestStay({
+      hotelGroupId: hotel.hotelGroupId,
+      hotelId: hotel.id,
+      roomNo,
+      birthDate,
+      firstName: res.guest.firstName ?? null,
+      lastName: res.guest.lastName ?? null,
+      checkIn: res.guest.checkIn ? new Date(res.guest.checkIn) : null,
+      checkOut: res.guest.checkOut ? new Date(res.guest.checkOut) : null,
+      agency: res.guest.agency ?? null,
+      phone: res.guest.phone ?? null,
+      email: res.guest.email ?? null,
+      country: res.guest.country ?? null,
+      roomType: res.guest.roomType ?? null,
+      currency: res.guest.currency ?? null,
+    });
+  } catch (e) {
+    // Non-fatal: capture failure shouldn't block the guest's internet access.
+    console.error('guest_stays capture failed:', e);
   }
 
   // Persist a guest session so re-opening the portal skips the login screen.

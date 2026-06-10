@@ -2,6 +2,7 @@ import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { db, withTenant } from './client';
 import {
   auditLogs,
+  guestStays,
   hotelGroups,
   hotels,
   hotelSimulation,
@@ -408,7 +409,33 @@ export interface SimGuest {
   guestName: string | null;
   checkIn: Date | null;
   checkOut: Date | null;
+  // Richer PMS fields (optional; populated by the sim/PMS, captured into guest_stays).
+  firstName?: string | null;
+  lastName?: string | null;
+  birthDate?: string | null;
+  agency?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  country?: string | null;
+  roomType?: string | null;
+  currency?: string | null;
 }
+
+const SIM_GUEST_COLS = {
+  roomNo: hotelSimulation.roomNo,
+  guestName: hotelSimulation.guestName,
+  checkIn: hotelSimulation.checkIn,
+  checkOut: hotelSimulation.checkOut,
+  birthDate: hotelSimulation.birthDate,
+  firstName: hotelSimulation.firstName,
+  lastName: hotelSimulation.lastName,
+  agency: hotelSimulation.agency,
+  phone: hotelSimulation.phone,
+  email: hotelSimulation.email,
+  country: hotelSimulation.country,
+  roomType: hotelSimulation.roomType,
+  currency: hotelSimulation.currency,
+} as const;
 
 /**
  * DEV verification: match a guest's room-no + birth-date against hotel_simulation.
@@ -421,7 +448,7 @@ export async function verifyHotelSimulation(
   birthDate: string,
 ): Promise<SimGuest | null> {
   const r = await db
-    .select({ roomNo: hotelSimulation.roomNo, guestName: hotelSimulation.guestName, checkIn: hotelSimulation.checkIn, checkOut: hotelSimulation.checkOut })
+    .select(SIM_GUEST_COLS)
     .from(hotelSimulation)
     .where(
       and(
@@ -441,11 +468,73 @@ export async function verifyHotelSimulation(
  */
 export async function getSimGuestByRoom(hotelId: string, roomNo: string): Promise<SimGuest | null> {
   const r = await db
-    .select({ roomNo: hotelSimulation.roomNo, guestName: hotelSimulation.guestName, checkIn: hotelSimulation.checkIn, checkOut: hotelSimulation.checkOut })
+    .select(SIM_GUEST_COLS)
     .from(hotelSimulation)
     .where(and(eq(hotelSimulation.hotelId, hotelId), eq(hotelSimulation.roomNo, roomNo), eq(hotelSimulation.active, true)))
     .limit(1);
   return r[0] ?? null;
+}
+
+/**
+ * Persist (or refresh) a verified guest stay in our store. Called by the guest app at
+ * captive login as SUPER (the guest has no console session) — same trusted-server pattern
+ * as createSurveyResponse. Keyed by (hotel, room, birthDate) — the guest's login identity.
+ */
+export async function upsertGuestStay(input: {
+  hotelGroupId: string;
+  hotelId: string;
+  roomNo: string;
+  birthDate: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  checkIn?: Date | null;
+  checkOut?: Date | null;
+  agency?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  country?: string | null;
+  roomType?: string | null;
+  currency?: string | null;
+  reservationRef?: string | null;
+}) {
+  await withTenant(SUPER, (tx) =>
+    tx
+      .insert(guestStays)
+      .values({
+        hotelId: input.hotelId,
+        hotelGroupId: input.hotelGroupId,
+        roomNo: input.roomNo,
+        birthDate: input.birthDate,
+        firstName: input.firstName ?? null,
+        lastName: input.lastName ?? null,
+        checkIn: input.checkIn ?? null,
+        checkOut: input.checkOut ?? null,
+        agency: input.agency ?? null,
+        phone: input.phone ?? null,
+        email: input.email ?? null,
+        country: input.country ?? null,
+        roomType: input.roomType ?? null,
+        currency: input.currency ?? null,
+        reservationRef: input.reservationRef ?? null,
+      })
+      .onConflictDoUpdate({
+        target: [guestStays.hotelId, guestStays.roomNo, guestStays.birthDate],
+        set: {
+          firstName: input.firstName ?? null,
+          lastName: input.lastName ?? null,
+          checkIn: input.checkIn ?? null,
+          checkOut: input.checkOut ?? null,
+          agency: input.agency ?? null,
+          phone: input.phone ?? null,
+          email: input.email ?? null,
+          country: input.country ?? null,
+          roomType: input.roomType ?? null,
+          currency: input.currency ?? null,
+          reservationRef: input.reservationRef ?? null,
+          lastVerifiedAt: new Date(),
+        },
+      }),
+  );
 }
 
 /** Seed/refresh a simulated guest room (idempotent on hotel+room). DEV only. */

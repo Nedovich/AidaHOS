@@ -93,10 +93,27 @@ create policy survey_responses_rls on survey_responses
     or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid
   );
 
+-- ---- guest_stays (group-scoped via denormalized hotel_group_id) ----
+-- Our persisted copy of verified guest reservations. Written by the guest app as
+-- super_admin (trusted server, no console session); read in the console group-scoped.
+alter table guest_stays enable row level security;
+drop policy if exists guest_stays_rls on guest_stays;
+create policy guest_stays_rls on guest_stays
+  for all to public
+  using (
+    current_setting('app.current_role', true) = 'super_admin'
+    or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid
+  )
+  with check (
+    current_setting('app.current_role', true) = 'super_admin'
+    or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid
+  );
+
 -- Least-privilege grants for the runtime role (owner runs this file).
 do $$ begin
   if exists (select 1 from pg_roles where rolname = 'aidahos_app') then
     grant select, insert, update, delete on surveys to aidahos_app;
     grant select, insert, update, delete on survey_responses to aidahos_app;
+    grant select, insert, update, delete on guest_stays to aidahos_app;
   end if;
 end $$;

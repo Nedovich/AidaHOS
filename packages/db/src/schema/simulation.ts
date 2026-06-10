@@ -22,6 +22,16 @@ export const hotelSimulation = pgTable(
     guestName: text('guest_name'),
     checkIn: timestamp('check_in', { withTimezone: true }),
     checkOut: timestamp('check_out', { withTimezone: true }),
+    // Richer reservation fields mirroring the real PMS view (RMOS dbo.vwparali) so the
+    // dev sim can exercise the full guest-capture path. All optional.
+    firstName: text('first_name'), // Rez_Adi_1
+    lastName: text('last_name'), // Rez_Adi_2
+    agency: text('agency'), // Ac_Adi
+    phone: text('phone'), // Kimlik_Tel
+    email: text('email'), // Kimlik_Mail
+    country: text('country'), // Ulke_Adi / Kimlik_Uyruk
+    roomType: text('room_type'), // Oda_Tipi
+    currency: text('currency'), // Doviz_Kodu
     active: boolean('active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

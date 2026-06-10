@@ -11,12 +11,14 @@ if (!url) {
   process.exit(1);
 }
 
-// roomNo, birthDate (DDMMYYYY), guestName, checkIn (ISO date), checkOut (ISO date)
+// Mirrors the real PMS view (RMOS dbo.vwparali). Fields:
+// roomNo, birthDate(DDMMYYYY), firstName, lastName, checkIn, checkOut,
+// agency, phone, email, country, roomType, currency
 const ROOMS = [
-  ['101', '08051990', 'Ayşe Yılmaz', '2026-06-04', '2026-06-10'],
-  ['102', '15071985', 'Mehmet Demir', '2026-06-05', '2026-06-09'],
-  ['205', '23111978', 'Elena Petrova', '2026-06-03', '2026-06-12'],
-  ['250', '01011990', 'John Carter', '2026-06-06', '2026-06-08'],
+  ['101', '08051990', 'Ayşe', 'Yılmaz', '2026-06-04', '2026-06-10', 'EXPEDIA NRF', '05321234567', 'ayse.yilmaz@example.com', 'TR', 'STD', 'TL'],
+  ['102', '15071985', 'Mehmet', 'Demir', '2026-06-05', '2026-06-09', 'TRIP.COM', '05335556677', 'mehmet.demir@example.com', 'TR', 'EKO', 'TL'],
+  ['205', '23111978', 'Elena', 'Petrova', '2026-06-03', '2026-06-12', 'OSTROVOK.RU', '+79112527362', 'elena.petrova@example.com', 'RUS', 'CRN', 'EURO'],
+  ['250', '01011990', 'John', 'Carter', '2026-06-06', '2026-06-08', 'AGODA B2B', '+447700900123', 'john.carter@example.com', 'USA', 'ACT', 'USD'],
 ];
 
 const sql = postgres(url, { ssl: 'prefer', max: 1, connect_timeout: 15, onnotice: () => {} });
@@ -27,13 +29,20 @@ try {
     process.exit(1);
   }
   const hotelId = hotel[0].id;
-  for (const [roomNo, birthDate, guestName, checkIn, checkOut] of ROOMS) {
+  for (const [roomNo, birthDate, firstName, lastName, checkIn, checkOut, agency, phone, email, country, roomType, currency] of ROOMS) {
+    const guestName = `${firstName} ${lastName}`;
     await sql`
-      insert into hotel_simulation (hotel_id, room_no, birth_date, guest_name, check_in, check_out, active)
-      values (${hotelId}, ${roomNo}, ${birthDate}, ${guestName}, ${checkIn}, ${checkOut}, true)
+      insert into hotel_simulation (hotel_id, room_no, birth_date, guest_name, first_name, last_name,
+        check_in, check_out, agency, phone, email, country, room_type, currency, active)
+      values (${hotelId}, ${roomNo}, ${birthDate}, ${guestName}, ${firstName}, ${lastName},
+        ${checkIn}, ${checkOut}, ${agency}, ${phone}, ${email}, ${country}, ${roomType}, ${currency}, true)
       on conflict (hotel_id, room_no)
       do update set birth_date = excluded.birth_date, guest_name = excluded.guest_name,
-        check_in = excluded.check_in, check_out = excluded.check_out, active = true`;
+        first_name = excluded.first_name, last_name = excluded.last_name,
+        check_in = excluded.check_in, check_out = excluded.check_out,
+        agency = excluded.agency, phone = excluded.phone, email = excluded.email,
+        country = excluded.country, room_type = excluded.room_type, currency = excluded.currency,
+        active = true`;
   }
   console.log(`seed-simulation: seeded ${ROOMS.length} rooms for "${hotel[0].name}" (${slug}).`);
   console.log('  e.g. room 101 / 08051990');
