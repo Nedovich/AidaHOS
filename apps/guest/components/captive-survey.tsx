@@ -38,6 +38,13 @@ export function CaptiveSurvey({ offer, onDone }: { offer: SurveyOffer; onDone: (
     model.locale = loc === offer.defaultLocale ? '' : loc;
   }, [loc, model, offer.defaultLocale]);
 
+  // After completion, briefly show the thank-you then auto-return to the portal home.
+  useEffect(() => {
+    if (!done) return;
+    const id = setTimeout(onDone, 3000);
+    return () => clearTimeout(id);
+  }, [done, onDone]);
+
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'var(--bg)', zIndex: 60, display: 'flex', flexDirection: 'column' }}>
       <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '16px 18px', borderBottom: '1px solid var(--line)', background: 'var(--surface)' }}>
