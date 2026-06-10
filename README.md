@@ -62,4 +62,4 @@ Full stack via Docker: `docker compose -f infra/docker/docker-compose.yml up --b
 Tailscale · 4 Hotel Admin · 5 Guest Portal · 6 PMS sync · 7+ Surveys · Notifications ·
 Dining/Spa · Events · AI Assistant.
 
-See `/Users/nedimeskinazi/.claude/plans/` for the full architecture plan.
+See `/Users/username/.claude/plans/` for the full architecture plan.

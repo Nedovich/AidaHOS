@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { findHotelBySlug } from '@aidahos/db';
+import { findHotelBySlug, getSimGuestByRoom } from '@aidahos/db';
 import { GuestApp, type GuestSession } from '@/components/guest/guest-app';
 import { GUEST_COOKIE } from '@/lib/constants';
 import { defaultSurveyOffer } from '@/lib/survey-offer';
@@ -42,6 +42,21 @@ export default async function GuestHome({
     }
   } catch {
     session = null;
+  }
+
+  // Live-refresh the guest's name/dates from the DB (the cookie is only a login-time
+  // snapshot, so a PMS/sim change mid-stay wouldn't otherwise show). Falls back to the
+  // cookie values if the room is no longer found.
+  if (session?.room && hotel) {
+    const live = await getSimGuestByRoom(hotel.id, session.room);
+    if (live) {
+      session = {
+        room: live.roomNo,
+        name: live.guestName ?? session.name,
+        checkIn: live.checkIn ? live.checkIn.toISOString() : session.checkIn,
+        checkOut: live.checkOut ? live.checkOut.toISOString() : session.checkOut,
+      };
+    }
   }
 
   // On the post-login return (?connected=1), offer the hotel's default survey before the

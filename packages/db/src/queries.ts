@@ -435,6 +435,19 @@ export async function verifyHotelSimulation(
   return r[0] ?? null;
 }
 
+/**
+ * Look up the current guest of a room WITHOUT the birth-date (used to live-refresh the
+ * portal header from the DB on each load, so name/dates aren't a stale login snapshot).
+ */
+export async function getSimGuestByRoom(hotelId: string, roomNo: string): Promise<SimGuest | null> {
+  const r = await db
+    .select({ roomNo: hotelSimulation.roomNo, guestName: hotelSimulation.guestName, checkIn: hotelSimulation.checkIn, checkOut: hotelSimulation.checkOut })
+    .from(hotelSimulation)
+    .where(and(eq(hotelSimulation.hotelId, hotelId), eq(hotelSimulation.roomNo, roomNo), eq(hotelSimulation.active, true)))
+    .limit(1);
+  return r[0] ?? null;
+}
+
 /** Seed/refresh a simulated guest room (idempotent on hotel+room). DEV only. */
 export async function upsertHotelSimulation(input: {
   hotelId: string;
