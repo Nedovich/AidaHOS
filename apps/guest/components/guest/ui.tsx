@@ -146,11 +146,12 @@ export function StatusBar(_props: { light?: boolean }) {
   return <div style={{ height: 12, flexShrink: 0 }} />;
 }
 
-export function LangSwitch({ light = false, compact = false }: { light?: boolean; compact?: boolean }) {
+export function LangSwitch({ light = false, compact = false, langs }: { light?: boolean; compact?: boolean; langs?: string[] }) {
   const { lang, setLang } = useLang();
+  const list = langs && langs.length ? AIDA_LANGS.filter((l) => langs.includes(l.code)) : AIDA_LANGS;
   return (
     <div style={{ display: 'flex', gap: 6, background: light ? 'rgba(255,255,255,.14)' : 'var(--surface-2)', padding: 5, borderRadius: 99, border: '1px solid ' + (light ? 'rgba(255,255,255,.25)' : 'var(--line)') }}>
-      {AIDA_LANGS.map((l) => {
+      {list.map((l) => {
         const on = l.code === lang;
         return (
           <button key={l.code} onClick={() => setLang(l.code as Lang)}

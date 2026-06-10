@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { resolveLoc, type PortalLang, type PortalSplash } from '@aidahos/db/portal-config';
 import { L, useLang } from '@/lib/i18n';
 import {
   AIDA_DINING, AIDA_EVENTS, AIDA_EXPERIENCES, AIDA_SPA, AIDA_TONIGHT, AIDA_WEATHER, IMG, PH,
@@ -11,27 +12,42 @@ import { Button, Icon, LangSwitch, Ph, StatusBar } from './ui';
 import { DiningCard, EventCard, ExperienceCard, Rail, RowHead, SpaCard, TonightHero, WeatherLine } from './cards';
 
 /* ---------------- Splash ---------------- */
-export function Splash({ brand, onEnter }: { brand: Brand; onEnter: () => void }) {
+export function Splash({ brand, onEnter, splash, defaultLang, enabledLangs }: {
+  brand: Brand;
+  onEnter: () => void;
+  splash?: PortalSplash;
+  defaultLang?: PortalLang;
+  enabledLangs?: PortalLang[];
+}) {
   const { t, lang } = useLang();
+  const def = defaultLang ?? 'en';
+  const name = splash ? resolveLoc(splash.name, lang as PortalLang, def) || brand.name : brand.name;
+  const sub = splash ? resolveLoc(splash.sub, lang as PortalLang, def) : L(brand.sub, lang);
+  const tag = splash ? resolveLoc(splash.tag, lang as PortalLang, def) || t('splash_tagline') : t('splash_tagline');
+  const enter = splash ? resolveLoc(splash.enter, lang as PortalLang, def) || t('splash_enter') : t('splash_enter');
+  const bgUrl = splash?.backgroundUrl || IMG(PH.resortSea, 1000);
+  const logo = splash?.logoUrl;
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: 'var(--ph-night)' }}>
-      <img src={IMG(PH.resortSea, 1000)} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+      <img src={bgUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(20,14,8,.32) 0%, rgba(20,14,8,.12) 38%, rgba(16,11,6,.82) 100%)' }} />
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
         <StatusBar light />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '30px 30px 42px' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }} className="anim-in"><LangSwitch light compact /></div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }} className="anim-in"><LangSwitch light compact langs={enabledLangs} /></div>
           <div className="anim-up" style={{ textAlign: 'center' }}>
-            <div style={{ width: 84, height: 84, borderRadius: '50%', margin: '0 auto 22px', display: 'grid', placeItems: 'center', background: 'rgba(255,255,255,.16)', border: '1.5px solid rgba(255,255,255,.5)', backdropFilter: 'blur(8px)' }}>
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 600, color: '#fff' }}>{brand.monogram}</span>
+            <div style={{ width: 84, height: 84, borderRadius: '50%', margin: '0 auto 22px', display: 'grid', placeItems: 'center', overflow: 'hidden', background: 'rgba(255,255,255,.16)', border: '1.5px solid rgba(255,255,255,.5)', backdropFilter: 'blur(8px)' }}>
+              {logo
+                ? <img src={logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <span style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 600, color: '#fff' }}>{brand.monogram}</span>}
             </div>
-            <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 46, fontWeight: 500, color: '#fff', letterSpacing: '.01em', lineHeight: 1 }}>{brand.name}</h1>
-            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.28em', textTransform: 'uppercase', color: 'rgba(255,255,255,.82)', marginTop: 12 }}>{L(brand.sub, lang)}</div>
+            <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 46, fontWeight: 500, color: '#fff', letterSpacing: '.01em', lineHeight: 1 }}>{name}</h1>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.28em', textTransform: 'uppercase', color: 'rgba(255,255,255,.82)', marginTop: 12 }}>{sub}</div>
           </div>
           <div className="anim-up" style={{ animationDelay: '.1s' }}>
-            <p style={{ textAlign: 'center', color: 'rgba(255,255,255,.92)', fontSize: 16, fontWeight: 500, marginBottom: 22, fontFamily: 'var(--font-display)', fontStyle: 'italic', letterSpacing: '.01em' }}>{t('splash_tagline')}</p>
+            <p style={{ textAlign: 'center', color: 'rgba(255,255,255,.92)', fontSize: 16, fontWeight: 500, marginBottom: 22, fontFamily: 'var(--font-display)', fontStyle: 'italic', letterSpacing: '.01em' }}>{tag}</p>
             <button onClick={onEnter} className="btn btn-block" style={{ background: '#fff', color: 'var(--ink)', fontSize: 16, padding: '17px', boxShadow: '0 12px 30px -12px rgba(0,0,0,.5)' }}>
-              {t('splash_enter')} <Icon name="arrowR" size={19} stroke={2} />
+              {enter} <Icon name="arrowR" size={19} stroke={2} />
             </button>
           </div>
         </div>

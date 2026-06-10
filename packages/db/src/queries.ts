@@ -11,6 +11,7 @@ import {
   surveys,
   users,
 } from './schema';
+import { defaultPortalConfig, parsePortalStore, withDefaults, type PortalConfig } from './portal-config';
 
 type AppRole = 'super_admin' | 'admin' | 'user' | 'customer';
 const SUPER: { role: AppRole } = { role: 'super_admin' };
@@ -296,6 +297,36 @@ export async function getHotelById(id: string) {
     const r = await tx.select().from(hotels).where(eq(hotels.id, id));
     return r[0] ?? null;
   });
+}
+
+/* ---------------- Guest Portal config (hotels.brand jsonb: {draft, published}) ---------------- */
+
+/** Load a hotel's portal config (admin reads 'draft', guest reads 'published'), with defaults. */
+export async function getHotelPortalConfig(hotelId: string, which: 'draft' | 'published' = 'draft'): Promise<PortalConfig> {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx.select({ name: hotels.name, brand: hotels.brand }).from(hotels).where(eq(hotels.id, hotelId));
+    const row = r[0];
+    if (!row) return defaultPortalConfig('AIDA Bay');
+    const store = parsePortalStore(row.brand);
+    const cfg = which === 'published' ? store.published ?? store.draft : store.draft ?? store.published;
+    return withDefaults(cfg, row.name);
+  });
+}
+
+/** Persist the admin's working draft. */
+export async function saveHotelPortalDraft(hotelId: string, config: PortalConfig): Promise<void> {
+  await withTenant(SUPER, async (tx) => {
+    const r = await tx.select({ brand: hotels.brand }).from(hotels).where(eq(hotels.id, hotelId));
+    const store = parsePortalStore(r[0]?.brand);
+    await tx.update(hotels).set({ brand: { ...store, draft: config }, updatedAt: new Date() }).where(eq(hotels.id, hotelId));
+  });
+}
+
+/** Publish: the given config becomes both the live (published) and the working draft. */
+export async function publishHotelPortal(hotelId: string, config: PortalConfig): Promise<void> {
+  await withTenant(SUPER, (tx) =>
+    tx.update(hotels).set({ brand: { draft: config, published: config }, updatedAt: new Date() }).where(eq(hotels.id, hotelId)),
+  );
 }
 
 export async function findHotelBySlug(slug: string) {

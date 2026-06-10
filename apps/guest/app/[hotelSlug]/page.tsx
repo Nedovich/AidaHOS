@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { findHotelBySlug, getSimGuestByRoom } from '@aidahos/db';
+import { findHotelBySlug, getSimGuestByRoom, parsePortalStore, withDefaults } from '@aidahos/db';
 import { GuestApp, type GuestSession } from '@/components/guest/guest-app';
 import { GUEST_COOKIE } from '@/lib/constants';
 import { defaultSurveyOffer } from '@/lib/survey-offer';
@@ -68,6 +68,9 @@ export default async function GuestHome({
     surveyOffer = await defaultSurveyOffer(hotel.id, session.room, session.checkIn);
   }
 
+  // Per-hotel portal branding/content the admin composed and published (hotels.brand jsonb).
+  const portalConfig = hotel ? withDefaults(parsePortalStore(hotel.brand).published, hotel.name) : null;
+
   return (
     <GuestApp
       hotelSlug={hotelSlug}
@@ -77,6 +80,7 @@ export default async function GuestHome({
       startInApp={connected || session !== null}
       session={session}
       surveyOffer={surveyOffer}
+      portalConfig={portalConfig}
     />
   );
 }

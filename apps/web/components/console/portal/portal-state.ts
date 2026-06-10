@@ -1,20 +1,25 @@
 import type { CSSProperties } from 'react';
+import {
+  PORTAL_LANGS, PORTAL_PALETTES, portalCssVars,
+  type Loc, type PortalBrand, type PortalConfig, type PortalLang, type PortalSplash,
+} from '@aidahos/db/portal-config';
 
 /* ============================================================
-   Guest Portal Composer — state, design constants, reducer.
-   Ported from the design handoff (assets/screens/portal.js → PORTAL.S).
-   Mock data only; persistence to the hotel comes in a later pass.
+   Guest Portal Composer — working UI state + reducer.
+   Persisted shape lives in @aidahos/db (PortalConfig); this adds editor-only UI fields
+   (selected screen/section, active edit language, library open) and maps to/from it.
    ============================================================ */
 
 export type ScreenId = 'splash' | 'login' | 'home' | 'explore' | 'events';
 export type InspTab = 'edit' | 'brand' | 'langs';
-export type LangCode = 'en' | 'tr' | 'de' | 'ru';
 export type SectionType =
   | 'greeting' | 'weather' | 'spotlight' | 'carousel'
   | 'banner' | 'feedback' | 'quickactions' | 'offer' | 'eventstrip';
 
-export interface QuickItem { l: string; i: string }
+export type { PortalLang, Loc };
+export const PALETTES = PORTAL_PALETTES;
 
+export interface QuickItem { l: string; i: string }
 export interface Section {
   id: string;
   type: SectionType;
@@ -36,80 +41,24 @@ export interface Section {
   items?: QuickItem[];
 }
 
-export interface Brand {
-  tenant: 'aida' | 'azure';
-  primaryIdx: number;
-  secondaryIdx: number;
-  theme: 'warm' | 'cool' | 'editorial';
-  evening: boolean;
-  heading: 'serif' | 'sans';
-  radius: number; // 0 | 1 | 2
-  lang: LangCode;
-}
-
 export interface PortalState {
   screen: ScreenId;
   tab: InspTab;
   sel: string | null;
   libOpen: boolean;
-  brand: Brand;
-  langs: Record<LangCode, boolean>;
+  /** Language currently being edited / previewed (NOT the portal default). */
+  editLang: PortalLang;
+  brand: PortalBrand;
+  langs: { enabled: Record<PortalLang, boolean>; default: PortalLang };
   login: { method: 'room' | 'email' | 'code'; privacy: boolean };
-  splash: { name: string; sub: string; tag: string; enter: string };
+  splash: PortalSplash;
   sections: Section[];
   eventsFilter: 'today' | 'upcoming' | 'all';
 }
 
-/* ---------------- design constants ---------------- */
-export const PALETTES = {
-  primary: [
-    { name: 'Terracotta', c: '#BC6A3C' }, { name: 'Teal', c: '#2E7C92' },
-    { name: 'Rose', c: '#B65A6E' }, { name: 'Olive', c: '#7C6A3A' }, { name: 'Deep Teal', c: '#235E59' },
-  ],
-  secondary: [
-    { name: 'Forest', c: '#2F5D4E' }, { name: 'Amber', c: '#C2912F' },
-    { name: 'Navy', c: '#3E5170' }, { name: 'Brick', c: '#9C4A38' }, { name: 'Mustard', c: '#CCA23C' },
-  ],
-} as const;
-
-const THEMES = {
-  warm: { bg: '#F6F0E6', surface: '#FFFDF8', text: '#2A2620', text2: '#6F675B', text3: '#9A9183' },
-  cool: { bg: '#EDF1F0', surface: '#FFFFFF', text: '#1E2422', text2: '#5E6A66', text3: '#94A09B' },
-  editorial: { bg: '#FBFAF7', surface: '#FFFFFF', text: '#1A1916', text2: '#615E57', text3: '#9B978D' },
-  evening: { bg: '#15110C', surface: '#201B15', text: '#F3ECE0', text2: '#B3A892', text3: '#7E7461' },
-} as const;
-
-const RADII = [{ r: 8, pill: 12 }, { r: 16, pill: 99 }, { r: 24, pill: 99 }];
-
-export const TENANTS: Record<Brand['tenant'], { name: string; sub: string; short: string; primary: number }> = {
-  aida: { name: 'AIDA Bay', sub: 'RESORT & SPA', short: 'AB', primary: 0 },
-  azure: { name: 'Azure Sands', sub: 'BEACH RESORT', short: 'AS', primary: 1 },
-};
-
-export function primaryColor(b: Brand) { return (PALETTES.primary[b.primaryIdx] ?? PALETTES.primary[0]).c; }
-export function accentColor(b: Brand) { return (PALETTES.secondary[b.secondaryIdx] ?? PALETTES.secondary[0]).c; }
-
-/** Computes the `--gp-*` brand vars applied inline on the phone `.gp-screen` (design gpStyle). */
-export function gpStyleVars(b: Brand): CSSProperties {
-  const th = THEMES[b.evening ? 'evening' : b.theme];
-  const rad = RADII[b.radius] ?? RADII[1]!;
-  const disp = b.heading === 'serif'
-    ? 'var(--font-display, "Cormorant Garamond", Georgia, serif)'
-    : 'var(--font-ui, "Manrope", system-ui, sans-serif)';
-  return {
-    '--gp-primary': primaryColor(b),
-    '--gp-accent2': accentColor(b),
-    '--gp-bg': th.bg,
-    '--gp-surface': th.surface,
-    '--gp-text': th.text,
-    '--gp-text2': th.text2,
-    '--gp-text3': th.text3,
-    '--gp-statusink': th.text,
-    '--gp-display': disp,
-    '--gp-r': `${rad.r}px`,
-    '--gp-rpill': `${rad.pill}px`,
-    fontFamily: 'var(--font-ui, "Manrope", system-ui, sans-serif)',
-  } as CSSProperties;
+/** Wraps the shared `--gp-*` vars as React CSSProperties for the phone surface. */
+export function gpStyleVars(b: PortalBrand): CSSProperties {
+  return { ...portalCssVars(b), fontFamily: 'var(--font-ui, "Manrope", system-ui, sans-serif)' } as CSSProperties;
 }
 
 export function defaultSections(): Section[] {
@@ -131,15 +80,29 @@ export function defaultSections(): Section[] {
   ];
 }
 
-export function initialState(): PortalState {
+/** Build editor state from a persisted config (the admin draft). */
+export function stateFromConfig(cfg: PortalConfig): PortalState {
+  const enabled = Object.fromEntries(PORTAL_LANGS.map((l) => [l, cfg.langs.enabled.includes(l)])) as Record<PortalLang, boolean>;
   return {
-    screen: 'home', tab: 'edit', sel: 'spotlight', libOpen: false,
-    brand: { tenant: 'aida', primaryIdx: 0, secondaryIdx: 0, theme: 'warm', evening: false, heading: 'serif', radius: 1, lang: 'en' },
-    langs: { en: true, tr: true, de: true, ru: false },
+    screen: 'splash', tab: 'edit', sel: 'spotlight', libOpen: false,
+    editLang: cfg.langs.default,
+    brand: { ...cfg.brand },
+    langs: { enabled, default: cfg.langs.default },
     login: { method: 'room', privacy: true },
-    splash: { name: 'AIDA Bay', sub: 'RESORT & SPA', tag: 'Your stay, perfectly composed.', enter: 'Enter' },
+    splash: { ...cfg.splash },
     sections: defaultSections(),
     eventsFilter: 'today',
+  };
+}
+
+/** Extract the persisted config from editor state (UI-only fields dropped). */
+export function configFromState(s: PortalState): PortalConfig {
+  const enabled = PORTAL_LANGS.filter((l) => s.langs.enabled[l]);
+  return {
+    version: 1,
+    brand: { ...s.brand },
+    langs: { enabled: enabled.length ? enabled : ['en'], default: s.langs.default },
+    splash: { ...s.splash },
   };
 }
 
@@ -162,20 +125,24 @@ export type Action =
   | { t: 'disable'; id: string }
   | { t: 'field'; id: string; key: keyof Section; val: string | boolean }
   | { t: 'toggleField'; id: string; key: keyof Section }
-  | { t: 'splash'; key: keyof PortalState['splash']; val: string }
+  | { t: 'editLang'; lang: PortalLang }
+  | { t: 'splashText'; key: 'name' | 'sub' | 'tag' | 'enter'; val: string }
+  | { t: 'splashUrl'; key: 'logoUrl' | 'backgroundUrl'; val: string }
   | { t: 'login'; key: keyof PortalState['login']; val: string | boolean }
-  | { t: 'brand'; key: keyof Brand; val: string | number | boolean }
-  | { t: 'lang'; l: LangCode }
-  | { t: 'defaultLang'; l: LangCode }
+  | { t: 'brand'; key: keyof PortalBrand; val: string | number | boolean }
+  | { t: 'lang'; l: PortalLang }
+  | { t: 'defaultLang'; l: PortalLang }
   | { t: 'eventsFilter'; f: PortalState['eventsFilter'] }
   | { t: 'quickItem'; id: string; idx: number; val: string }
-  | { t: 'reorder'; fromId: string; toId: string; below: boolean };
+  | { t: 'reorder'; fromId: string; toId: string; below: boolean }
+  | { t: 'replace'; state: PortalState };
 
 const patchSec = (s: PortalState, id: string, patch: Partial<Section>): Section[] =>
   s.sections.map((sec) => (sec.id === id ? { ...sec, ...patch } : sec));
 
 export function reducer(s: PortalState, a: Action): PortalState {
   switch (a.t) {
+    case 'replace': return a.state;
     case 'screen': return { ...s, screen: a.screen, tab: 'edit' };
     case 'tab': return { ...s, tab: a.tab };
     case 'select': return { ...s, sel: a.id, tab: 'edit' };
@@ -192,22 +159,20 @@ export function reducer(s: PortalState, a: Action): PortalState {
       if (!sec) return s;
       return { ...s, sections: patchSec(s, a.id, { [a.key]: !sec[a.key] } as Partial<Section>) };
     }
-    case 'splash': return { ...s, splash: { ...s.splash, [a.key]: a.val } };
+    case 'editLang': return { ...s, editLang: a.lang };
+    case 'splashText': return { ...s, splash: { ...s.splash, [a.key]: { ...s.splash[a.key], [s.editLang]: a.val } } };
+    case 'splashUrl': return { ...s, splash: { ...s.splash, [a.key]: a.val || null } };
     case 'login': return { ...s, login: { ...s.login, [a.key]: a.val } };
-    case 'brand': {
-      if (a.key === 'tenant') {
-        const tn = TENANTS[a.val as Brand['tenant']];
-        return { ...s, brand: { ...s.brand, tenant: a.val as Brand['tenant'], primaryIdx: tn.primary }, splash: { ...s.splash, name: tn.name, sub: tn.sub } };
-      }
-      return { ...s, brand: { ...s.brand, [a.key]: a.val } };
-    }
+    case 'brand': return { ...s, brand: { ...s.brand, [a.key]: a.val } };
     case 'lang': {
-      const langs = { ...s.langs, [a.l]: !s.langs[a.l] };
-      let lang = s.brand.lang;
-      if (!langs[lang]) lang = (Object.keys(langs) as LangCode[]).find((k) => langs[k]) || 'en';
-      return { ...s, langs, brand: { ...s.brand, lang } };
+      const enabled = { ...s.langs.enabled, [a.l]: !s.langs.enabled[a.l] };
+      let def = s.langs.default;
+      let editLang = s.editLang;
+      if (!enabled[def]) def = PORTAL_LANGS.find((k) => enabled[k]) || 'en';
+      if (!enabled[editLang]) editLang = def;
+      return { ...s, langs: { enabled, default: def }, editLang };
     }
-    case 'defaultLang': return s.langs[a.l] ? { ...s, brand: { ...s.brand, lang: a.l } } : s;
+    case 'defaultLang': return s.langs.enabled[a.l] ? { ...s, langs: { ...s.langs, default: a.l } } : s;
     case 'eventsFilter': return { ...s, eventsFilter: a.f };
     case 'quickItem': {
       const sec = s.sections.find((x) => x.id === a.id);
@@ -225,7 +190,7 @@ export function reducer(s: PortalState, a: Action): PortalState {
       if (!moved) return s;
       let to = arr.findIndex((x) => x.id === toId);
       if (below) to += 1;
-      if (to < 1) to = 1; // never above the locked greeting
+      if (to < 1) to = 1;
       arr.splice(to, 0, moved);
       return { ...s, sections: arr, sel: fromId };
     }

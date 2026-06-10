@@ -1,11 +1,23 @@
 'use client';
 
 import { type Dispatch, type ReactNode } from 'react';
+import { PORTAL_LANGS, type PortalBrand, type PortalLang } from '@aidahos/db/portal-config';
 import { Ico } from './portal-icons';
-import {
-  type Action, type Brand, type PortalState, type Section,
-  PALETTES, typeLabel,
-} from './portal-state';
+import { type Action, type PortalState, type Section, PALETTES, typeLabel } from './portal-state';
+
+/** Pills to switch which language the text fields edit / the preview shows. */
+function LangBar({ s, dispatch }: { s: PortalState; dispatch: Dispatch<Action> }) {
+  const enabled = PORTAL_LANGS.filter((l) => s.langs.enabled[l]);
+  if (enabled.length < 2) return null;
+  return (
+    <div className="pb-fld">
+      <div className="pb-fld__l">Editing language</div>
+      <div className="pb-seg">
+        {enabled.map((l) => <button key={l} className={l === s.editLang ? 'on' : ''} onClick={() => dispatch({ t: 'editLang', lang: l })}>{l.toUpperCase()}</button>)}
+      </div>
+    </div>
+  );
+}
 
 /* ---------------- field builders ---------------- */
 function Field({ label, children }: { label?: ReactNode; children: ReactNode }) {
@@ -70,15 +82,20 @@ function EditPanel({ s, dispatch }: { s: PortalState; dispatch: Dispatch<Action>
 
   if (s.screen === 'splash') {
     const sp = s.splash;
-    const set = (key: keyof PortalState['splash']) => (val: string) => dispatch({ t: 'splash', key, val });
+    const el = s.editLang;
+    const t = (key: 'name' | 'sub' | 'tag' | 'enter') => (val: string) => dispatch({ t: 'splashText', key, val });
+    const url = (key: 'logoUrl' | 'backgroundUrl') => (val: string) => dispatch({ t: 'splashUrl', key, val });
     return (
       <>
         <SelHead ic="image" name="Splash screen" desc="Arrival screen" />
-        <ImgSlot label="Background photo" />
-        <Txt label="Resort name" ph="AIDA Bay" value={sp.name} onChange={set('name')} />
-        <Txt label="Subtitle" ph="RESORT & SPA" value={sp.sub} onChange={set('sub')} />
-        <Txt label="Tagline" ph="Your stay…" value={sp.tag} onChange={set('tag')} />
-        <Txt label="Enter button label" ph="Enter" value={sp.enter} onChange={set('enter')} />
+        <LangBar s={s} dispatch={dispatch} />
+        <Txt label="Background photo URL" ph="https://… (boşsa varsayılan görsel)" value={sp.backgroundUrl ?? ''} onChange={url('backgroundUrl')} />
+        <Txt label="Logo URL" ph="https://… (boşsa monogram)" value={sp.logoUrl ?? ''} onChange={url('logoUrl')} />
+        <Txt label="Resort name" ph="AIDA Bay" value={sp.name[el] ?? ''} onChange={t('name')} />
+        <Txt label="Subtitle" ph="RESORT & SPA" value={sp.sub[el] ?? ''} onChange={t('sub')} />
+        <Txt label="Tagline" ph="Your stay…" value={sp.tag[el] ?? ''} onChange={t('tag')} />
+        <Txt label="Enter button label" ph="Enter" value={sp.enter[el] ?? ''} onChange={t('enter')} />
+        <Note>Metin alanları aktif düzenleme diline ({el.toUpperCase()}) yazılır. Dili yukarıdan değiştirip her dil için doldurun.</Note>
       </>
     );
   }
@@ -235,15 +252,14 @@ function Swatches({ arr, sel, onPick }: { arr: readonly { name: string; c: strin
 }
 function BrandPanel({ s, dispatch }: { s: PortalState; dispatch: Dispatch<Action> }) {
   const b = s.brand;
-  const setB = (key: keyof Brand, val: string | number | boolean) => dispatch({ t: 'brand', key, val });
+  const setB = (key: keyof PortalBrand, val: string | number | boolean) => dispatch({ t: 'brand', key, val });
   return (
     <>
-      <div className="pb-grouplbl">Brand · multi-tenant</div>
-      <Field label="Hotel"><Seg value={b.tenant} opts={[['aida', 'AIDA Bay'], ['azure', 'Azure Sands']]} onChange={(v) => setB('tenant', v)} /></Field>
+      <div className="pb-grouplbl">Brand</div>
       <Field label="Primary color"><Swatches arr={PALETTES.primary} sel={b.primaryIdx} onPick={(i) => setB('primaryIdx', i)} /></Field>
       <Field label="Accent color"><Swatches arr={PALETTES.secondary} sel={b.secondaryIdx} onPick={(i) => setB('secondaryIdx', i)} /></Field>
       <div className="pb-grouplbl">Aesthetic</div>
-      <Field label="Theme"><Seg value={b.evening ? ('' as Brand['theme']) : b.theme} opts={[['warm', 'Warm'], ['cool', 'Cool'], ['editorial', 'Editorial']]} onChange={(v) => setB('theme', v)} /></Field>
+      <Field label="Theme"><Seg value={b.evening ? ('' as PortalBrand['theme']) : b.theme} opts={[['warm', 'Warm'], ['cool', 'Cool'], ['editorial', 'Editorial']]} onChange={(v) => setB('theme', v)} /></Field>
       <Toggle label="Evening mode" desc="Dark, candle-lit palette after sunset" on={b.evening} onClick={() => setB('evening', !b.evening)} />
       <div className="pb-grouplbl">Form</div>
       <Field label="Heading font"><Seg value={b.heading} opts={[['serif', 'Serif'], ['sans', 'Sans']]} onChange={(v) => setB('heading', v)} /></Field>
@@ -255,15 +271,15 @@ function BrandPanel({ s, dispatch }: { s: PortalState; dispatch: Dispatch<Action
 }
 
 /* ---------------- LANGUAGES PANEL ---------------- */
-const LANG_ROWS: [Brand['lang'], string, number][] = [['en', 'English', 100], ['tr', 'Türkçe', 100], ['de', 'Deutsch', 86], ['ru', 'Русский', 64]];
+const LANG_ROWS: [PortalLang, string, number][] = [['en', 'English', 100], ['tr', 'Türkçe', 100], ['de', 'Deutsch', 86], ['ru', 'Русский', 64]];
 function LangsPanel({ s, dispatch }: { s: PortalState; dispatch: Dispatch<Action> }) {
   return (
     <>
       <div className="pb-grouplbl">Guest languages</div>
       <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-3)', lineHeight: 1.5, marginBottom: 'var(--sp-4)' }}>Choose which languages appear in the portal language switcher. The default is shown on first open.</p>
       {LANG_ROWS.map(([code, name, pct]) => {
-        const on = s.langs[code];
-        const isDef = s.brand.lang === code;
+        const on = s.langs.enabled[code];
+        const isDef = s.langs.default === code;
         return (
           <div className="pb-lang" key={code}>
             <div className="pb-lang__flag">{code.toUpperCase()}</div>

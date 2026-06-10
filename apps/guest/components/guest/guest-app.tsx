@@ -1,12 +1,25 @@
 'use client';
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { AIDA_BRANDS, AIDA_GUEST, AIDA_NOTIFS, type AidaEvent } from '@/lib/data';
+import { PORTAL_LANGS, portalAccent, portalPrimary, resolveLoc, type PortalConfig } from '@aidahos/db/portal-config';
+import { AIDA_BRANDS, AIDA_GUEST, AIDA_NOTIFS, type AidaEvent, type Brand } from '@/lib/data';
 import { LangCtx, L, makeT, useLang, type Lang } from '@/lib/i18n';
 import type { SurveyOffer } from '@/lib/survey-types';
 import { BottomNav, Icon, Sheet } from './ui';
 import { ComingSoon, Home, Login, Splash } from './screens';
 import { CaptiveSurvey } from '@/components/captive-survey';
+
+/** Build the guest Brand tokens from a published portal config (name/colors/monogram). */
+function brandFromConfig(cfg: PortalConfig): Brand {
+  const def = cfg.langs.default;
+  const name = resolveLoc(cfg.splash.name, def, def) || 'AIDA Bay';
+  const mono = name.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'AB';
+  const primary = portalPrimary(cfg.brand);
+  const accent = portalAccent(cfg.brand);
+  const sp = cfg.splash.sub;
+  const sub = { en: sp.en ?? resolveLoc(sp, def, def), tr: sp.tr, de: sp.de, ru: sp.ru };
+  return { name, sub, monogram: mono, primary, primary700: primary, secondary: accent, accent };
+}
 
 /* Reception quick-request sheet (concierge) */
 function ReceptionSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -110,9 +123,10 @@ export interface GuestAppProps {
   startInApp?: boolean;
   session?: GuestSession | null;
   surveyOffer?: SurveyOffer | null;
+  portalConfig?: PortalConfig | null;
 }
 
-function AppInner({ loginAction, portal, hotelSlug, startInApp, session, surveyOffer }: { loginAction?: LoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; startInApp?: boolean; session?: GuestSession | null; surveyOffer?: SurveyOffer | null }) {
+function AppInner({ loginAction, portal, hotelSlug, startInApp, session, surveyOffer, portalConfig }: { loginAction?: LoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; startInApp?: boolean; session?: GuestSession | null; surveyOffer?: SurveyOffer | null; portalConfig?: PortalConfig | null }) {
   const [stage, setStage] = useState<'splash' | 'login' | 'app'>(startInApp ? 'app' : 'splash');
   // Default-survey flow: server passes surveyOffer on the ?connected=1 return; the dev
   // (no-MikroTik) login path supplies it via the loginAction result instead.
@@ -129,7 +143,7 @@ function AppInner({ loginAction, portal, hotelSlug, startInApp, session, surveyO
   const [joined, setJoined] = useState<Set<string>>(new Set());
   const [sheet, setSheet] = useState<SheetState>({ type: null });
 
-  const brand = AIDA_BRANDS.aida!;
+  const brand = portalConfig ? brandFromConfig(portalConfig) : AIDA_BRANDS.aida!;
   // Real guest from the persisted session (room + name); other fields stay mock for now.
   const guest = session
     ? { ...AIDA_GUEST, name: session.name || AIDA_GUEST.name, initials: (session.name || AIDA_GUEST.name).split(' ').map((s) => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase(), room: session.room || AIDA_GUEST.room }
@@ -167,9 +181,17 @@ function AppInner({ loginAction, portal, hotelSlug, startInApp, session, surveyO
   const unread = AIDA_NOTIFS.filter((n) => n.unread).length;
 
   return (
-    <div className="aida-app" data-mode="day"
+    <div className="aida-app" data-mode={portalConfig?.brand.evening ? 'evening' : 'day'}
       style={{ '--brand-primary': brand.primary, '--brand-primary-700': brand.primary700, '--brand-secondary': brand.secondary, '--brand-accent': brand.accent, position: 'absolute', inset: 0, overflow: 'hidden', background: 'var(--bg)' } as CSSProperties}>
-      {stage === 'splash' && <Splash brand={brand} onEnter={() => setStage('login')} />}
+      {stage === 'splash' && (
+        <Splash
+          brand={brand}
+          onEnter={() => setStage('login')}
+          splash={portalConfig?.splash}
+          defaultLang={portalConfig?.langs.default}
+          enabledLangs={portalConfig ? PORTAL_LANGS.filter((l) => portalConfig.langs.enabled.includes(l)) : undefined}
+        />
+      )}
       {stage === 'login' && (
         <Login
           brand={brand}
@@ -207,8 +229,9 @@ function AppInner({ loginAction, portal, hotelSlug, startInApp, session, surveyO
   );
 }
 
-export function GuestApp({ loginAction, portal, hotelSlug, startInApp, session, surveyOffer }: GuestAppProps = {}) {
-  const [lang, setLangState] = useState<Lang>('en');
+export function GuestApp({ loginAction, portal, hotelSlug, startInApp, session, surveyOffer, portalConfig }: GuestAppProps = {}) {
+  // Initial language = the portal's default (unless the guest already picked one).
+  const [lang, setLangState] = useState<Lang>((portalConfig?.langs.default as Lang) ?? 'en');
   useEffect(() => {
     const saved = (typeof localStorage !== 'undefined' && localStorage.getItem('aida_lang')) as Lang | null;
     if (saved) setLangState(saved);
@@ -219,7 +242,7 @@ export function GuestApp({ loginAction, portal, hotelSlug, startInApp, session, 
   return (
     <LangCtx.Provider value={value}>
       <div style={{ position: 'relative', width: '100%', maxWidth: 440, height: '100dvh', margin: '0 auto', overflow: 'hidden', background: 'var(--bg)', boxShadow: '0 0 80px -20px rgba(40,25,12,.25)' }}>
-        <AppInner loginAction={loginAction} portal={portal} hotelSlug={hotelSlug} startInApp={startInApp} session={session} surveyOffer={surveyOffer} />
+        <AppInner loginAction={loginAction} portal={portal} hotelSlug={hotelSlug} startInApp={startInApp} session={session} surveyOffer={surveyOffer} portalConfig={portalConfig} />
       </div>
     </LangCtx.Provider>
   );

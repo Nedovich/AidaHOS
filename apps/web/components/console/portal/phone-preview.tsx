@@ -1,8 +1,9 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { PORTAL_LANGS, resolveLoc, type PortalLang } from '@aidahos/db/portal-config';
 import { Ico } from './portal-icons';
-import { gpStyleVars, type LangCode, type PortalState, type Section } from './portal-state';
+import { gpStyleVars, type PortalState, type Section } from './portal-state';
 
 /* Live phone renderer — JSX port of the design's portal-phone.js. Renders the guest-facing
    splash/login/home/explore/events screens from composer state. On Home, blocks are clickable
@@ -34,32 +35,39 @@ function ImgSlot() {
   return <div className="gp-img gp-img--photo"><Ico name="image" size={26} /></div>;
 }
 
-const LANG_ORDER: LangCode[] = ['en', 'tr', 'de', 'ru'];
-function LangPills({ s }: { s: PortalState }) {
+function LangPills({ s, onEditLang }: { s: PortalState; onEditLang: (l: PortalLang) => void }) {
   return (
     <div className="gp-langpills">
-      {LANG_ORDER.filter((l) => s.langs[l]).map((l) => (
-        <button key={l} className={l === s.brand.lang ? 'on' : ''}>{l.toUpperCase()}</button>
+      {PORTAL_LANGS.filter((l) => s.langs.enabled[l]).map((l) => (
+        <button key={l} className={l === s.editLang ? 'on' : ''} onClick={() => onEditLang(l)}>{l.toUpperCase()}</button>
       ))}
     </div>
   );
 }
 
 /* ---------------- SPLASH ---------------- */
-function Splash({ s }: { s: PortalState }) {
+function Splash({ s, onEditLang }: { s: PortalState; onEditLang: (l: PortalLang) => void }) {
+  const lang = s.editLang;
+  const def = s.langs.default;
+  const name = resolveLoc(s.splash.name, lang, def);
+  const bg = s.splash.backgroundUrl;
   return (
     <div className="gp-splash">
-      <div className="gp-splash__bg gp-img gp-img--photo"><Ico name="image" size={0} /></div>
+      <div className="gp-splash__bg gp-img gp-img--photo" style={bg ? { backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
+        {bg ? null : <Ico name="image" size={0} />}
+      </div>
       <StatusBar onImg />
       <div className="gp-splash__in">
-        <LangPills s={s} />
+        <LangPills s={s} onEditLang={onEditLang} />
         <div style={{ flex: 1 }} />
-        <div className="gp-mono">{initials(s.splash.name)}</div>
-        <div className="gp-splash__name">{s.splash.name}</div>
-        <div className="gp-splash__sub">{s.splash.sub}</div>
+        <div className="gp-mono" style={s.splash.logoUrl ? { border: 'none', overflow: 'hidden', padding: 0 } : undefined}>
+          {s.splash.logoUrl ? <img src={s.splash.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(name)}
+        </div>
+        <div className="gp-splash__name">{name}</div>
+        <div className="gp-splash__sub">{resolveLoc(s.splash.sub, lang, def)}</div>
         <div style={{ flex: 1 }} />
-        <div className="gp-splash__tag">{s.splash.tag}</div>
-        <div className="gp-enter">{s.splash.enter} <Ico name="arrowR" size={17} /></div>
+        <div className="gp-splash__tag">{resolveLoc(s.splash.tag, lang, def)}</div>
+        <div className="gp-enter">{resolveLoc(s.splash.enter, lang, def)} <Ico name="arrowR" size={17} /></div>
       </div>
     </div>
   );
@@ -72,14 +80,15 @@ const LOGIN_FIELDS: Record<PortalState['login']['method'], [string, string][]> =
   code: [['Last name', 'Korkmaz'], ['Booking reference', 'ABX-49120']],
 };
 function Login({ s }: { s: PortalState }) {
+  const name = resolveLoc(s.splash.name, s.editLang, s.langs.default);
   return (
     <div className="gp-scroll">
       <StatusBar />
       <div className="gp-login__hero gp-img gp-img--photo" style={{ marginTop: -42, paddingTop: 42 }}><Ico name="image" size={0} /></div>
       <div className="gp-login__body">
-        <div className="gp-login__mono">{initials(s.splash.name)}</div>
+        <div className="gp-login__mono">{initials(name)}</div>
         <div className="gp-h1">Welcome</div>
-        <div className="gp-login__sub">Sign in to your stay · {s.splash.name}</div>
+        <div className="gp-login__sub">Sign in to your stay · {name}</div>
         {LOGIN_FIELDS[s.login.method].map((f, i) => (
           <div className="gp-field" key={i}><div className="gp-field__l">{f[0]}</div><div className="gp-field__in">{f[1]}</div></div>
         ))}
@@ -345,9 +354,9 @@ function Home({ s, onSelect }: { s: PortalState; onSelect: (id: string) => void 
 }
 
 /* ---------------- DEVICE ---------------- */
-export function PhonePreview({ s, onSelect }: { s: PortalState; onSelect: (id: string) => void }) {
+export function PhonePreview({ s, onSelect, onEditLang }: { s: PortalState; onSelect: (id: string) => void; onEditLang: (l: PortalLang) => void }) {
   const inner =
-    s.screen === 'splash' ? <Splash s={s} />
+    s.screen === 'splash' ? <Splash s={s} onEditLang={onEditLang} />
     : s.screen === 'login' ? <Login s={s} />
     : s.screen === 'explore' ? <Explore />
     : s.screen === 'events' ? <Events filter={s.eventsFilter} />
