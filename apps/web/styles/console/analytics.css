@@ -1,0 +1,291 @@
+/* ============================================================
+   AIDA Cloud - Executive analytics
+   ============================================================ */
+
+.exec-analytics {
+  --analytics-gap: var(--sp-5);
+}
+
+.exec-analytics-hero {
+  align-items: flex-end;
+}
+
+.exec-analytics-range {
+  min-height: 38px;
+}
+
+.exec-analytics-range button {
+  padding-inline: 16px;
+}
+
+.exec-analytics-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--analytics-gap);
+  margin-bottom: var(--sp-5);
+}
+
+.exec-analytics-kpis .kpi {
+  min-height: 156px;
+  padding: 18px;
+}
+
+.exec-analytics-kpis .kpi__top {
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.exec-analytics-kpis .kpi__val {
+  font-size: 34px;
+}
+
+.exec-analytics-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(330px, 1fr);
+  gap: var(--analytics-gap);
+  align-items: stretch;
+}
+
+.exec-analytics-grid--bottom {
+  margin-top: var(--sp-5);
+  padding-bottom: var(--sp-5);
+}
+
+.exec-analytics-card {
+  min-height: 330px;
+}
+
+.exec-analytics-card--wide {
+  min-width: 0;
+}
+
+.exec-analytics-card-legend {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.exec-analytics-chart-body {
+  padding-top: 14px;
+}
+
+.exec-analytics-area {
+  display: block;
+  width: 100%;
+  height: 268px;
+  overflow: visible;
+}
+
+.exec-analytics-area line {
+  stroke: var(--border-faint);
+  stroke-width: 1;
+}
+
+.exec-analytics-area text {
+  fill: var(--text-3);
+  font-family: var(--font-ui);
+  font-size: 10px;
+}
+
+.exec-analytics-area__month {
+  text-anchor: middle;
+}
+
+.exec-analytics-area__line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 2.4;
+}
+
+.exec-analytics-area__line--revenue {
+  stroke: var(--chart-1);
+}
+
+.exec-analytics-area__line--occupancy {
+  stroke: var(--chart-3);
+}
+
+.exec-analytics-device {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding-top: 8px;
+}
+
+.exec-analytics-legend {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.exec-analytics-legend__row {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+}
+
+.exec-analytics-legend__row strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.exec-analytics-hbars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.exec-analytics-hbars__row {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) 46px;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 0;
+}
+
+.exec-analytics-hbars__label {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exec-analytics-hbars__row .minibar {
+  height: 9px;
+  max-width: none;
+}
+
+.exec-analytics-hbars__row strong {
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.exec-campaign-bars {
+  min-height: 232px;
+}
+
+.exec-campaign-bars__plot {
+  display: grid;
+  height: 210px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: end;
+  gap: clamp(14px, 2vw, 24px);
+  padding: 14px 8px 0;
+  border-bottom: 1px solid var(--border-faint);
+  background-image: linear-gradient(to top, var(--border-faint) 1px, transparent 1px);
+  background-size: 100% 25%;
+}
+
+.exec-campaign-bars__slot {
+  display: flex;
+  height: 100%;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+}
+
+.exec-campaign-bars__sent,
+.exec-campaign-bars__converted {
+  display: block;
+  width: 16px;
+  border-radius: 4px 4px 0 0;
+}
+
+.exec-campaign-bars__sent {
+  background: var(--surface-3);
+}
+
+.exec-campaign-bars__converted {
+  background: var(--chart-1);
+}
+
+.exec-campaign-bars__labels {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: clamp(14px, 2vw, 24px);
+  padding: 8px 8px 0;
+}
+
+.exec-campaign-bars__labels span {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 10px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exec-campaign-legend {
+  justify-content: center;
+  margin-top: 8px;
+}
+
+@media (max-width: 1260px) {
+  .exec-analytics-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  .exec-analytics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .exec-analytics-hero .page-hero__actions {
+    align-items: stretch;
+  }
+
+  .exec-analytics-range {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .exec-analytics-range button {
+    flex: 1 0 auto;
+  }
+
+  .exec-analytics-card-legend {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .exec-analytics-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .exec-analytics-card {
+    min-height: auto;
+  }
+
+  .exec-analytics-area {
+    height: 238px;
+  }
+
+  .exec-analytics-hbars__row {
+    grid-template-columns: minmax(105px, 1fr) minmax(0, 1fr) 42px;
+    gap: 10px;
+  }
+
+  .exec-campaign-bars__plot,
+  .exec-campaign-bars__labels {
+    gap: 9px;
+  }
+
+  .exec-campaign-bars__sent,
+  .exec-campaign-bars__converted {
+    width: 12px;
+  }
+}

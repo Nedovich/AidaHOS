@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import {
-  PORTAL_LANGS, PORTAL_PALETTES, portalCssVars,
-  type Loc, type PortalBrand, type PortalConfig, type PortalLang, type PortalSplash,
+  DEFAULT_AGREEMENT, PORTAL_LANGS, PORTAL_PALETTES, portalCssVars,
+  type Loc, type PortalAgreement, type PortalBrand, type PortalConfig, type PortalLang, type PortalLogin, type PortalSplash,
 } from '@aidahos/db/portal-config';
 
 /* ============================================================
@@ -50,7 +50,7 @@ export interface PortalState {
   editLang: PortalLang;
   brand: PortalBrand;
   langs: { enabled: Record<PortalLang, boolean>; default: PortalLang };
-  login: { method: 'room' | 'email' | 'code'; privacy: boolean };
+  login: PortalLogin;
   splash: PortalSplash;
   sections: Section[];
   eventsFilter: 'today' | 'upcoming' | 'all';
@@ -88,7 +88,7 @@ export function stateFromConfig(cfg: PortalConfig): PortalState {
     editLang: cfg.langs.default,
     brand: { ...cfg.brand },
     langs: { enabled, default: cfg.langs.default },
-    login: { method: 'room', privacy: true },
+    login: { ...cfg.login },
     splash: { ...cfg.splash },
     sections: defaultSections(),
     eventsFilter: 'today',
@@ -103,6 +103,7 @@ export function configFromState(s: PortalState): PortalConfig {
     brand: { ...s.brand },
     langs: { enabled: enabled.length ? enabled : ['en'], default: s.langs.default },
     splash: { ...s.splash },
+    login: { ...s.login },
   };
 }
 
@@ -128,7 +129,14 @@ export type Action =
   | { t: 'editLang'; lang: PortalLang }
   | { t: 'splashText'; key: 'name' | 'sub' | 'tag' | 'enter'; val: string }
   | { t: 'splashUrl'; key: 'logoUrl' | 'backgroundUrl'; val: string }
-  | { t: 'login'; key: keyof PortalState['login']; val: string | boolean }
+  | { t: 'loginToggle'; key: 'userMode' | 'freeMode' | 'privacy' }
+  | { t: 'loginHelp'; val: string }
+  | { t: 'agreeLoad' }
+  | { t: 'agreeClear' }
+  | { t: 'agreeField'; field: 'title' | 'updated' | 'intro'; val: string }
+  | { t: 'agreeSection'; idx: number; field: 'heading' | 'body'; val: string }
+  | { t: 'agreeAdd' }
+  | { t: 'agreeRemove'; idx: number }
   | { t: 'brand'; key: keyof PortalBrand; val: string | number | boolean }
   | { t: 'lang'; l: PortalLang }
   | { t: 'defaultLang'; l: PortalLang }
@@ -162,7 +170,31 @@ export function reducer(s: PortalState, a: Action): PortalState {
     case 'editLang': return { ...s, editLang: a.lang };
     case 'splashText': return { ...s, splash: { ...s.splash, [a.key]: { ...s.splash[a.key], [s.editLang]: a.val } } };
     case 'splashUrl': return { ...s, splash: { ...s.splash, [a.key]: a.val || null } };
-    case 'login': return { ...s, login: { ...s.login, [a.key]: a.val } };
+    case 'loginToggle': return { ...s, login: { ...s.login, [a.key]: !s.login[a.key] } };
+    case 'loginHelp': return { ...s, login: { ...s.login, help: { ...s.login.help, [s.editLang]: a.val } } };
+    case 'agreeLoad': return { ...s, login: { ...s.login, agreement: JSON.parse(JSON.stringify(DEFAULT_AGREEMENT)) as PortalAgreement } };
+    case 'agreeClear': return { ...s, login: { ...s.login, agreement: undefined } };
+    case 'agreeField': {
+      const ag = s.login.agreement;
+      if (!ag) return s;
+      return { ...s, login: { ...s.login, agreement: { ...ag, [a.field]: { ...ag[a.field], [s.editLang]: a.val } } } };
+    }
+    case 'agreeSection': {
+      const ag = s.login.agreement;
+      if (!ag) return s;
+      const sections = ag.sections.map((sec, i) => (i === a.idx ? { ...sec, [a.field]: { ...sec[a.field], [s.editLang]: a.val } } : sec));
+      return { ...s, login: { ...s.login, agreement: { ...ag, sections } } };
+    }
+    case 'agreeAdd': {
+      const ag = s.login.agreement;
+      if (!ag) return s;
+      return { ...s, login: { ...s.login, agreement: { ...ag, sections: [...ag.sections, { heading: {}, body: {} }] } } };
+    }
+    case 'agreeRemove': {
+      const ag = s.login.agreement;
+      if (!ag) return s;
+      return { ...s, login: { ...s.login, agreement: { ...ag, sections: ag.sections.filter((_, i) => i !== a.idx) } } };
+    }
     case 'brand': return { ...s, brand: { ...s.brand, [a.key]: a.val } };
     case 'lang': {
       const enabled = { ...s.langs.enabled, [a.l]: !s.langs.enabled[a.l] };

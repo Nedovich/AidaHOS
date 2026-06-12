@@ -36,6 +36,7 @@ const ICONS: Record<string, string> = {
   leaf: '<path d="M11 20A7 7 0 0 1 4 13C4 6 9 3 20 3c0 11-5 17-13 17zM4 21c1.5-4 5-7 9-8"/>',
   droplet: '<path d="M12 22a7 7 0 0 0 7-7c0-3-3-7-7-12-4 5-7 9-7 12a7 7 0 0 0 7 7z"/>',
   home: '<path d="M3 10.5 12 3l9 7.5M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/>',
+  key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.5 12.5 8-8M16 5l3 3M19.5 7.5 22 5"/>',
 };
 
 export type PortalIconName = keyof typeof ICONS | string;

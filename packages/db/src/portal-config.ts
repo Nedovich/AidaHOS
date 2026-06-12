@@ -79,11 +79,72 @@ export interface PortalSplash {
   tag: Loc;
   enter: Loc;
 }
+/** One titled section of the user agreement (heading + body), each localized. */
+export interface PortalAgreementSection { heading: Loc; body: Loc }
+/** The multilingual user agreement the hotel can author/update. When omitted, the guest
+ * app falls back to its built-in default agreement. */
+export interface PortalAgreement {
+  title: Loc;
+  updated: Loc; // free-text "Updated …" line per language
+  intro: Loc;
+  sections: PortalAgreementSection[];
+}
+
+/** Sign-in screen. "Guest" mode (room + DOB) is always available and is the real system;
+ * "User" and "Free Wi-Fi" tabs are optional mock modes the hotel can show. */
+export interface PortalLogin {
+  userMode: boolean;
+  freeMode: boolean;
+  privacy: boolean; // show the "data stays private" footer
+  help: Loc; // "Need help signing in?" link text (empty = hidden)
+  agreement?: PortalAgreement; // custom multilingual TOS; omitted = built-in default
+}
+
+/** A starting-point agreement the admin can load and edit (EN/TR seeded; translate the rest). */
+export const DEFAULT_AGREEMENT: PortalAgreement = {
+  title: { en: 'User Agreement', tr: 'Kullanıcı Sözleşmesi', de: 'Nutzungsvereinbarung', ru: 'Пользовательское соглашение' },
+  updated: { en: 'Last updated June 2026', tr: 'Son güncelleme: Haziran 2026' },
+  intro: {
+    en: 'By accessing the application and the resort’s network, you agree to use the service responsibly and in accordance with the terms below.',
+    tr: 'Uygulamaya ve resort ağına erişerek, hizmeti sorumlu bir şekilde ve aşağıdaki koşullara uygun olarak kullanmayı kabul edersiniz.',
+  },
+  sections: [
+    {
+      heading: { en: '1 · Use of Service', tr: '1 · Hizmetin Kullanımı' },
+      body: {
+        en: 'The network and app are provided for the personal use of in-house guests during their stay. Access may be limited to the reservation period.',
+        tr: 'Ağ ve uygulama, misafirlerin konaklamaları süresince kişisel kullanımı için sunulur. Erişim, rezervasyon süresiyle sınırlı olabilir.',
+      },
+    },
+    {
+      heading: { en: '2 · Privacy', tr: '2 · Gizlilik' },
+      body: {
+        en: 'The information you provide at sign-in is used only to verify your stay and deliver the service. It is handled in line with the hotel’s privacy policy.',
+        tr: 'Girişte verdiğiniz bilgiler yalnızca konaklamanızı doğrulamak ve hizmeti sunmak için kullanılır ve otelin gizlilik politikasına uygun olarak işlenir.',
+      },
+    },
+    {
+      heading: { en: '3 · Acceptable Conduct', tr: '3 · Kabul Edilebilir Kullanım' },
+      body: {
+        en: 'You agree not to use the network for unlawful activity, to disrupt other guests, or to attempt unauthorised access to resort systems.',
+        tr: 'Ağı yasa dışı faaliyetler için kullanmamayı, diğer misafirleri rahatsız etmemeyi veya resort sistemlerine yetkisiz erişim girişiminde bulunmamayı kabul edersiniz.',
+      },
+    },
+    {
+      heading: { en: '4 · Liability', tr: '4 · Sorumluluk' },
+      body: {
+        en: 'The service is provided on a best-effort basis. The resort is not liable for interruptions, data loss, or third-party content accessed through the network.',
+        tr: 'Hizmet, mümkün olan en iyi çaba esasına göre sunulur. Resort; kesintilerden, veri kaybından veya ağ üzerinden erişilen üçüncü taraf içeriklerinden sorumlu değildir.',
+      },
+    },
+  ],
+};
 export interface PortalConfig {
   version: number;
   brand: PortalBrand;
   langs: PortalLangs;
   splash: PortalSplash;
+  login: PortalLogin;
 }
 export interface PortalStore { draft?: PortalConfig; published?: PortalConfig }
 
@@ -99,6 +160,12 @@ export function defaultPortalConfig(hotelName: string): PortalConfig {
       sub: { en: 'RESORT & SPA' },
       tag: { en: 'Your stay, perfectly composed.', tr: 'Konaklamanız, kusursuz kurgulandı.' },
       enter: { en: 'Enter', tr: 'Giriş', de: 'Eintreten', ru: 'Войти' },
+    },
+    login: {
+      userMode: true,
+      freeMode: true,
+      privacy: true,
+      help: { en: 'Need help signing in?', tr: 'Giriş için yardım ister misiniz?' },
     },
   };
 }
@@ -123,5 +190,6 @@ export function withDefaults(cfg: Partial<PortalConfig> | undefined, hotelName: 
     brand: { ...d.brand, ...(cfg.brand ?? {}) },
     langs: { ...d.langs, ...(cfg.langs ?? {}) },
     splash: { ...d.splash, ...(cfg.splash ?? {}) },
+    login: { ...d.login, ...(cfg.login ?? {}) },
   };
 }

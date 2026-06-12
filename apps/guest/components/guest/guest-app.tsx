@@ -198,6 +198,7 @@ function AppInner({ loginAction, portal, hotelSlug, startInApp, session, surveyO
           loginAction={loginAction}
           portal={portal}
           hotelSlug={hotelSlug}
+          login={portalConfig?.login}
           onLogin={(survey) => {
             setStage('app');
             setTab('home');

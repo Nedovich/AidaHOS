@@ -32,7 +32,7 @@ const NAV: { group: Pair; items: Item[] }[] = [
     group: ['Genel', 'Overview'],
     items: [
       { id: 'dashboard', icon: LayoutGrid, label: ['Genel Bakış', 'Dashboard'] },
-      { id: 'analytics', icon: BarChart3, label: ['Analitik', 'Analytics'], soon: true },
+      { id: 'analytics', icon: BarChart3, label: ['Analitik', 'Analytics'] },
     ],
   },
   {
@@ -57,7 +57,7 @@ const NAV: { group: Pair; items: Item[] }[] = [
       { id: 'surveys', icon: ClipboardList, label: ['Anketler', 'Surveys'] },
       { id: 'notifs', icon: Bell, label: ['Bildirimler', 'Notifications'], soon: true },
       { id: 'ai', icon: Sparkles, label: ['AI Asistan', 'AI Assistant'], soon: true },
-      { id: 'events', icon: Calendar, label: ['Etkinlikler', 'Events'], soon: true },
+      { id: 'events', icon: Calendar, label: ['Etkinlikler', 'Events'] },
       { id: 'spa', icon: Leaf, label: ['Spa', 'Spa'], soon: true },
       { id: 'dining', icon: UtensilsCrossed, label: ['Restoran', 'Dining'], soon: true },
     ],
@@ -90,7 +90,10 @@ export function HotelSidebar({
       <div className="sidebar__brand">
         <div className="brandmark">
           <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 3 4 19h3.2l1.2-2.6h7.2L16.8 19H20L12 3zm-2.1 10.7L12 8.9l2.1 4.8H9.9z" fill="#fff" />
+            <path
+              d="M12 3 4 19h3.2l1.2-2.6h7.2L16.8 19H20L12 3zm-2.1 10.7L12 8.9l2.1 4.8H9.9z"
+              fill="#fff"
+            />
           </svg>
         </div>
         <div>
@@ -126,7 +129,11 @@ export function HotelSidebar({
               const href = `${base}/${it.id}`;
               const active = pathname === href || pathname.startsWith(`${href}/`);
               return (
-                <Link key={it.id} href={href} className={`nav__item${active ? ' active' : ''}`}>
+                <Link
+                  key={it.id}
+                  href={href}
+                  className={['nav__item', active ? 'active' : null].filter(Boolean).join(' ')}
+                >
                   <Icon size={17} />
                   <span>{L(it.label, lang)}</span>
                 </Link>

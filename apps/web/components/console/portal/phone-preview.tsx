@@ -74,26 +74,48 @@ function Splash({ s, onEditLang }: { s: PortalState; onEditLang: (l: PortalLang)
 }
 
 /* ---------------- LOGIN ---------------- */
-const LOGIN_FIELDS: Record<PortalState['login']['method'], [string, string][]> = {
-  room: [['Room number', 'e.g. 412'], ['Date of birth', 'DD / MM / YYYY']],
-  email: [['Email address', 'you@email.com'], ['Confirmation code', '6-digit code']],
-  code: [['Last name', 'Korkmaz'], ['Booking reference', 'ABX-49120']],
-};
 function Login({ s }: { s: PortalState }) {
   const name = resolveLoc(s.splash.name, s.editLang, s.langs.default);
+  const help = resolveLoc(s.login.help, s.editLang, s.langs.default);
+  const modes: { id: string; label: string; icon: string }[] = [
+    { id: 'guest', label: 'Guest', icon: 'key' },
+    ...(s.login.userMode ? [{ id: 'user', label: 'User', icon: 'users' }] : []),
+    ...(s.login.freeMode ? [{ id: 'free', label: 'Free Wi-Fi', icon: 'wifi' }] : []),
+  ];
   return (
     <div className="gp-scroll">
       <StatusBar />
       <div className="gp-login__hero gp-img gp-img--photo" style={{ marginTop: -42, paddingTop: 42 }}><Ico name="image" size={0} /></div>
       <div className="gp-login__body">
-        <div className="gp-login__mono">{initials(name)}</div>
+        <div className="gp-login__mono">{s.splash.logoUrl ? <img src={s.splash.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : initials(name)}</div>
         <div className="gp-h1">Welcome</div>
         <div className="gp-login__sub">Sign in to your stay · {name}</div>
-        {LOGIN_FIELDS[s.login.method].map((f, i) => (
-          <div className="gp-field" key={i}><div className="gp-field__l">{f[0]}</div><div className="gp-field__in">{f[1]}</div></div>
-        ))}
-        <div className="gp-cta">Continue <Ico name="arrowR" size={16} /></div>
-        <div className="gp-link">Need help signing in?</div>
+
+        {/* login mode tabs (Guest is always shown; preview shows it active) */}
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${modes.length}, 1fr)`, gap: 4, padding: 5, width: '100%', marginTop: 18, marginBottom: 16, background: 'var(--gp-surface)', border: '1px solid color-mix(in srgb, var(--gp-text2) 16%, transparent)', borderRadius: 'var(--gp-rpill, 99px)' }}>
+          {modes.map((m) => {
+            const on = m.id === 'guest';
+            return (
+              <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '9px 4px', borderRadius: 'var(--gp-rpill, 99px)', background: on ? 'var(--gp-primary)' : 'transparent', color: on ? '#fff' : 'var(--gp-text2)', fontSize: 11, fontWeight: on ? 800 : 700, whiteSpace: 'nowrap' }}>
+                <Ico name={m.icon} size={13} />{m.label}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="gp-field"><div className="gp-field__l">Room number</div><div className="gp-field__in">e.g. 412</div></div>
+        <div className="gp-field"><div className="gp-field__l">Date of birth</div><div className="gp-field__in">DD / MM / YYYY</div></div>
+
+        {/* user agreement */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, margin: '14px 2px 0' }}>
+          <div style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1, border: '1.5px solid color-mix(in srgb, var(--gp-text2) 35%, transparent)', background: 'var(--gp-surface)' }} />
+          <div style={{ fontSize: 11.5, color: 'var(--gp-text2)', lineHeight: 1.5 }}>I have read and accept the <b style={{ color: 'var(--gp-primary)', textDecoration: 'underline' }}>User Agreement</b>.</div>
+        </div>
+
+        <div className="gp-cta" style={{ marginTop: 16, opacity: 0.55 }}>Continue <Ico name="arrowR" size={16} /></div>
+        <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--gp-text3)', marginTop: 9 }}>Please accept the User Agreement to continue.</div>
+        {help ? <div className="gp-link" style={{ textAlign: 'center' }}>{help}</div> : null}
+
         {s.login.privacy && (
           <div className="gp-note"><Ico name="shield" size={15} /><span>Protected by AIDA. Your data stays private to your stay.</span></div>
         )}

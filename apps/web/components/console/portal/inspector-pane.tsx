@@ -76,6 +76,44 @@ function Note({ children }: { children: ReactNode }) {
   return <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-3)', lineHeight: 1.5, marginTop: 4 }}>{children}</p>;
 }
 
+/** Multilingual User Agreement editor (title/updated/intro + add/remove sections), per the
+ * active edit language. Empty = the guest app's built-in default agreement is used. */
+function AgreementEditor({ s, dispatch }: { s: PortalState; dispatch: Dispatch<Action> }) {
+  const ag = s.login.agreement;
+  const el = s.editLang;
+  if (!ag) {
+    return (
+      <>
+        <Note>Şu an yerleşik (çok dilli) sözleşme gösteriliyor. Kendi metninizi yazmak için özelleştirin.</Note>
+        <button className="btn btn--ghost btn--sm" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }} onClick={() => dispatch({ t: 'agreeLoad' })}>
+          <Ico name="plus" size={14} />Customize agreement
+        </button>
+      </>
+    );
+  }
+  return (
+    <>
+      <Txt label="Title" value={ag.title[el] ?? ''} onChange={(v) => dispatch({ t: 'agreeField', field: 'title', val: v })} />
+      <Txt label="“Updated …” line" value={ag.updated[el] ?? ''} onChange={(v) => dispatch({ t: 'agreeField', field: 'updated', val: v })} />
+      <Area label="Intro paragraph" value={ag.intro[el] ?? ''} onChange={(v) => dispatch({ t: 'agreeField', field: 'intro', val: v })} />
+      {ag.sections.map((sec, i) => (
+        <div key={i} style={{ border: '1px solid var(--border-faint)', borderRadius: 'var(--r-md)', padding: 11, marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--text-3)' }}>Section {i + 1}</span>
+            <button type="button" onClick={() => dispatch({ t: 'agreeRemove', idx: i })} title="Remove section" style={{ border: 0, background: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'grid', placeItems: 'center', padding: 2 }}>
+              <Ico name="x" size={14} />
+            </button>
+          </div>
+          <Txt label="Heading" value={sec.heading[el] ?? ''} onChange={(v) => dispatch({ t: 'agreeSection', idx: i, field: 'heading', val: v })} />
+          <Area label="Body" value={sec.body[el] ?? ''} onChange={(v) => dispatch({ t: 'agreeSection', idx: i, field: 'body', val: v })} />
+        </div>
+      ))}
+      <button className="pb-add" onClick={() => dispatch({ t: 'agreeAdd' })}><Ico name="plus" size={15} />Add section</button>
+      <button className="btn btn--subtle btn--sm" style={{ width: '100%', justifyContent: 'center', marginTop: 10, color: 'var(--text-2)' }} onClick={() => dispatch({ t: 'agreeClear' })}>Reset to built-in</button>
+    </>
+  );
+}
+
 /* ---------------- EDIT PANEL ---------------- */
 function EditPanel({ s, dispatch }: { s: PortalState; dispatch: Dispatch<Action> }) {
   const setF = (id: string, key: keyof Section) => (val: string) => dispatch({ t: 'field', id, key, val });
@@ -103,11 +141,16 @@ function EditPanel({ s, dispatch }: { s: PortalState; dispatch: Dispatch<Action>
     return (
       <>
         <SelHead ic="shield" name="Sign-in screen" desc="Guest verification" />
-        <Field label="Verification method">
-          <Seg value={s.login.method} opts={[['room', 'Room + DOB'], ['email', 'Email + Code'], ['code', 'Name + Ref']]} onChange={(v) => dispatch({ t: 'login', key: 'method', val: v })} />
-        </Field>
-        <Field label="Help link"><input className="pb-input" defaultValue="Need help signing in?" /></Field>
-        <Toggle label="Privacy reassurance note" desc="Show the “data stays private” footer" on={s.login.privacy} onClick={() => dispatch({ t: 'login', key: 'privacy', val: !s.login.privacy })} />
+        <Note>“Guest” (room + date of birth) is the real system and is always on. “User” and “Free Wi-Fi” are optional mock tabs.</Note>
+        <div className="pb-grouplbl">Login tabs</div>
+        <Toggle label="User tab" desc="Email + password (mock)" on={s.login.userMode} onClick={() => dispatch({ t: 'loginToggle', key: 'userMode' })} />
+        <Toggle label="Free Wi-Fi tab" desc="Name + email (mock)" on={s.login.freeMode} onClick={() => dispatch({ t: 'loginToggle', key: 'freeMode' })} />
+        <div className="pb-grouplbl">Content</div>
+        <LangBar s={s} dispatch={dispatch} />
+        <Txt label="Help link" ph="Need help signing in? (empty = hidden)" value={s.login.help[s.editLang] ?? ''} onChange={(v) => dispatch({ t: 'loginHelp', val: v })} />
+        <Toggle label="Privacy reassurance note" desc="Show the “data stays private” footer" on={s.login.privacy} onClick={() => dispatch({ t: 'loginToggle', key: 'privacy' })} />
+        <div className="pb-grouplbl">User agreement</div>
+        <AgreementEditor s={s} dispatch={dispatch} />
       </>
     );
   }

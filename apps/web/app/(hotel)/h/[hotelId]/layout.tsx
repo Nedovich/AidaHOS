@@ -6,6 +6,8 @@ import '@/styles/console/forms.css';
 import '@/styles/console/survey.css';
 import '@/styles/console/survey-wizard.css';
 import '@/styles/console/portal.css';
+import '@/styles/console/analytics.css';
+import '@/styles/console/events.css';
 import { getHotelById } from '@aidahos/db';
 import { canAccessHotel, getSession } from '@/lib/auth';
 import { getLang } from '@/lib/i18n-server';
@@ -54,7 +56,12 @@ export default async function HotelLayout({
     <LangProvider initial={lang}>
       <RouteProgress />
       <div className="app">
-        <HotelSidebar hotelId={hotel.id} hotelName={hotel.name} sub={roleLabel} isAdmin={session.user.role === 'admin'} />
+        <HotelSidebar
+          hotelId={hotel.id}
+          hotelName={hotel.name}
+          sub={roleLabel}
+          isAdmin={session.user.role === 'admin'}
+        />
         <div className="main">
           <ConsoleHeader
             initials={initialsOf(name)}

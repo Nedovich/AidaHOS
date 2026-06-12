@@ -24,3 +24,6 @@ export const surveyStatusType = pgEnum('survey_status', ['draft', 'published', '
 
 /** Triage state of a single guest response. */
 export const responseStatusType = pgEnum('survey_response_status', ['new', 'reviewed', 'flagged']);
+
+/** Lifecycle of a hotel event (mirrors the Events list status pills). */
+export const eventStatusType = pgEnum('event_status', ['draft', 'scheduled', 'live', 'full', 'completed', 'cancelled']);

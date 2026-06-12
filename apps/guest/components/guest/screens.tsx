@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { resolveLoc, type PortalLang, type PortalSplash } from '@aidahos/db/portal-config';
+import { resolveLoc, type PortalAgreement, type PortalLang, type PortalLogin, type PortalSplash } from '@aidahos/db/portal-config';
 import { L, useLang } from '@/lib/i18n';
 import {
   AIDA_DINING, AIDA_EVENTS, AIDA_EXPERIENCES, AIDA_SPA, AIDA_TONIGHT, AIDA_WEATHER, IMG, PH,
@@ -73,18 +73,138 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 type LoginFn = (room: string, dob: string) => Promise<{ ok: boolean; error?: string; username?: string; survey?: SurveyOffer | null }>;
 interface MikrotikPortal { loginUrl: string; orig: string; mac: string }
 
-export function Login({ brand, onLogin, loginAction, portal, hotelSlug }: { brand: Brand; onLogin: (survey?: SurveyOffer | null) => void; loginAction?: LoginFn; portal?: MikrotikPortal | null; hotelSlug?: string }) {
+type LoginMode = 'guest' | 'user' | 'free';
+
+function LoginModes({ mode, onChange, enabled }: { mode: LoginMode; onChange: (mode: LoginMode) => void; enabled: LoginMode[] }) {
+  const { t } = useLang();
+  const META: Record<LoginMode, { label: string; icon: string }> = {
+    guest: { label: t('seg_guest'), icon: 'key' },
+    user: { label: t('seg_user'), icon: 'user' },
+    free: { label: t('seg_free'), icon: 'wifi' },
+  };
+  const modes = enabled.map((id) => ({ id, ...META[id] }));
+  if (modes.length < 2) return null; // a single mode needs no switcher
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${modes.length},1fr)`, gap: 4, padding: 5, marginBottom: 24, background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 'var(--r-pill)' }}>
+      {modes.map((m) => {
+        const on = m.id === mode;
+        return (
+          <button
+            key={m.id}
+            onClick={() => onChange(m.id)}
+            style={{
+              border: 0,
+              cursor: 'pointer',
+              borderRadius: 'var(--r-pill)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              padding: '11px 6px',
+              transition: 'color .2s, box-shadow .2s',
+              background: on ? 'var(--brand-primary)' : 'transparent',
+              color: on ? '#fff' : 'var(--ink-2)',
+              boxShadow: on ? '0 6px 16px -8px color-mix(in srgb, var(--brand-primary) 70%, transparent)' : 'none',
+            }}
+          >
+            <Icon name={m.icon} size={16} stroke={on ? 2.1 : 1.8} color={on ? '#fff' : 'var(--ink-3)'} />
+            <span style={{ fontSize: 12.5, fontWeight: on ? 800 : 700, letterSpacing: '.01em', whiteSpace: 'nowrap' }}>{m.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AgreementModal({ onClose, agreement }: { onClose: () => void; agreement?: PortalAgreement | null }) {
   const { t, lang } = useLang();
+  const useCfg = !!(agreement && agreement.sections && agreement.sections.length);
+  const rL = (loc: Parameters<typeof resolveLoc>[0]) => resolveLoc(loc, lang as PortalLang, lang as PortalLang);
+  const title = useCfg ? rL(agreement!.title) : t('ag_title');
+  const updated = useCfg ? rL(agreement!.updated) : t('ag_updated');
+  const intro = useCfg ? rL(agreement!.intro) : t('ag_p1');
+  const sections = useCfg
+    ? agreement!.sections.map((s) => ({ h: rL(s.heading), b: rL(s.body) }))
+    : ([['ag_h1', 'ag_b1'], ['ag_h2', 'ag_b2'], ['ag_h3', 'ag_b3'], ['ag_h4', 'ag_b4']] as [string, string][]).map(([h, b]) => ({ h: t(h), b: t(b) }));
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 60, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+      <div onClick={onClose} className="anim-in" style={{ position: 'absolute', inset: 0, background: 'rgba(28,18,8,.5)', backdropFilter: 'blur(2px)' }} />
+      <div className="anim-up" style={{ position: 'relative', background: 'var(--surface)', borderTopLeftRadius: 'var(--r-xl)', borderTopRightRadius: 'var(--r-xl)', maxHeight: '82%', display: 'flex', flexDirection: 'column', boxShadow: '0 -20px 50px -20px rgba(28,18,8,.5)' }}>
+        <div style={{ padding: '16px 24px 12px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
+          <div style={{ width: 38, height: 4, borderRadius: 99, background: 'var(--line-2)', margin: '0 auto 14px' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 23, fontWeight: 600, color: 'var(--ink)' }}>{title}</h2>
+              {updated ? <div className="t-caption" style={{ marginTop: 3 }}>{updated}</div> : null}
+            </div>
+            <button onClick={onClose} aria-label={t('b_close')} style={{ width: 36, height: 36, borderRadius: '50%', border: 0, cursor: 'pointer', background: 'var(--surface-2)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <Icon name="close" size={18} color="var(--ink-2)" stroke={2} />
+            </button>
+          </div>
+        </div>
+        <div className="no-scrollbar" style={{ overflowY: 'auto', padding: '18px 24px 8px' }}>
+          <p className="t-body" style={{ margin: '0 0 20px', lineHeight: 1.6 }}>{intro}</p>
+          {sections.map((sec, i) => (
+            <div key={i} style={{ marginBottom: 18 }}>
+              <h3 style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 800, color: 'var(--ink)', letterSpacing: '.01em' }}>{sec.h}</h3>
+              <p className="t-body" style={{ margin: 0, lineHeight: 1.6, fontSize: 13.5 }}>{sec.b}</p>
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: '12px 24px calc(env(safe-area-inset-bottom,0px) + 18px)', borderTop: '1px solid var(--line)', flexShrink: 0 }}>
+          <Button variant="primary" block onClick={onClose} style={{ padding: '15px' }}>{t('b_close')}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function Login({ brand, onLogin, loginAction, portal, hotelSlug, login }: { brand: Brand; onLogin: (survey?: SurveyOffer | null) => void; loginAction?: LoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; login?: PortalLogin | null }) {
+  const { t, lang } = useLang();
+  // Which sign-in tabs the hotel enabled (Guest is always available + is the real system).
+  const enabledModes: LoginMode[] = ['guest'];
+  if (!login || login.userMode) enabledModes.push('user');
+  if (!login || login.freeMode) enabledModes.push('free');
+  const showPrivacy = login ? login.privacy : true;
+  const helpText = login ? resolveLoc(login.help, lang as PortalLang, lang as PortalLang) : t('login_help');
+  const [mode, setMode] = useState<LoginMode>('guest');
   const [room, setRoom] = useState('');
   const [dob, setDob] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [agreed, setAgreed] = useState(false);
+  const [showAgreement, setShowAgreement] = useState(false);
+  const [shake, setShake] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const valid = room.trim().length >= 1 && dob.replace(/\D/g, '').length === 8;
+  // If the hotel disabled the currently-active tab, fall back to Guest.
+  useEffect(() => { if (!enabledModes.includes(mode)) setMode('guest'); }, [mode, login?.userMode, login?.freeMode]);
+  const fieldsValid = mode === 'guest'
+    ? room.trim().length >= 1 && dob.replace(/\D/g, '').length === 8
+    : mode === 'user'
+      ? /.+@.+\..+/.test(email) && password.trim().length >= 4
+      : name.trim().length >= 2 && /.+@.+\..+/.test(email);
+  const valid = fieldsValid && agreed;
+  const subLabel = mode === 'guest' ? t('login_sub') : mode === 'user' ? t('auth_user_sub') : t('auth_free_sub');
+  const cta = loading ? t('login_signing') : mode === 'free' ? t('auth_connect') : t('login_continue');
+
   const submit = async () => {
-    if (!valid || loading) return;
+    if (!agreed) {
+      setShake(true);
+      window.setTimeout(() => setShake(false), 500);
+      return;
+    }
+    if (!fieldsValid || loading) return;
     setErr(null);
     setLoading(true);
     try {
+      if (mode !== 'guest') {
+        await new Promise((r) => setTimeout(r, 650));
+        return;
+      }
       if (loginAction) {
         const birth = dob.replace(/\D/g, '');
         const res = await loginAction(room.trim(), birth);
@@ -140,24 +260,59 @@ export function Login({ brand, onLogin, loginAction, portal, hotelSlug }: { bran
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '48px 28px 24px' }} className="no-scrollbar">
-        <div style={{ textAlign: 'center', marginBottom: 30 }}>
-          <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 600, color: 'var(--ink)' }}>{t('login_welcome')}</h1>
-          <p className="t-body" style={{ margin: '6px 0 0' }}>{t('login_sub')} · {brand.name}</p>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 600, color: 'var(--ink)' }}>{t('login_welcome')}</h1>
+          <p className="t-body" style={{ margin: '6px 0 0' }}>{subLabel} · {brand.name}</p>
         </div>
 
-        <Field label={t('login_room')}>
-          <input value={room} onChange={(e) => setRoom(e.target.value)} placeholder={t('login_room_ph')} inputMode="numeric" style={inputStyle} />
-        </Field>
-        <Field label={t('login_birth')}>
-          <input
-            value={dob}
-            onChange={(e) => setDob(e.target.value.replace(/\D/g, '').slice(0, 8))}
-            placeholder={L({ en: 'DDMMYYYY', tr: 'GGAAYYYY', de: 'TTMMJJJJ', ru: 'ДДММГГГГ' }, lang)}
-            inputMode="numeric"
-            maxLength={8}
-            style={inputStyle}
-          />
-        </Field>
+        <LoginModes mode={mode} enabled={enabledModes} onChange={(next) => { setMode(next); setErr(null); }} />
+
+        {mode === 'guest' && (
+          <>
+            <Field label={t('login_room')}>
+              <input value={room} onChange={(e) => setRoom(e.target.value)} placeholder={t('login_room_ph')} inputMode="numeric" style={inputStyle} />
+            </Field>
+            <Field label={t('login_birth')}>
+              <input
+                value={dob}
+                onChange={(e) => setDob(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                placeholder={L({ en: 'DD / MM / YYYY', tr: 'GG / AA / YYYY', de: 'TT / MM / JJJJ', ru: 'ДД / ММ / ГГГГ' }, lang)}
+                inputMode="numeric"
+                maxLength={8}
+                style={inputStyle}
+              />
+            </Field>
+          </>
+        )}
+
+        {mode === 'user' && (
+          <>
+            <Field label={t('auth_email')}>
+              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('auth_email_ph')} inputMode="email" autoCapitalize="none" style={inputStyle} />
+            </Field>
+            <Field label={t('auth_password')}>
+              <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('auth_password_ph')} type="password" style={inputStyle} />
+            </Field>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -4, marginBottom: 4 }}>
+              <button style={{ background: 'none', border: 0, cursor: 'pointer', color: 'var(--brand-primary)', fontWeight: 700, fontSize: 13 }}>{t('auth_forgot')}</button>
+            </div>
+          </>
+        )}
+
+        {mode === 'free' && (
+          <>
+            <Field label={t('auth_name')}>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('auth_name_ph')} style={inputStyle} />
+            </Field>
+            <Field label={t('auth_email')}>
+              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('auth_email_ph')} inputMode="email" autoCapitalize="none" style={inputStyle} />
+            </Field>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, margin: '2px 2px 4px' }}>
+              <Icon name="wifi" size={16} color="var(--brand-secondary)" style={{ flexShrink: 0, marginTop: 1 }} />
+              <p className="t-caption" style={{ margin: 0, lineHeight: 1.45 }}>{t('auth_free_note')}</p>
+            </div>
+          </>
+        )}
 
         {err && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, padding: '11px 14px', borderRadius: 'var(--r-md)', background: 'color-mix(in srgb, var(--danger, #d4524a) 12%, var(--surface))', border: '1px solid color-mix(in srgb, var(--danger, #d4524a) 35%, transparent)' }}>
@@ -166,18 +321,62 @@ export function Login({ brand, onLogin, loginAction, portal, hotelSlug }: { bran
           </div>
         )}
 
-        <Button variant="primary" block disabled={!valid || loading} onClick={submit} style={{ marginTop: 8, padding: '16px' }}>
-          {loading ? t('login_signing') : t('login_continue')}
-          {!loading && <Icon name="arrowR" size={18} stroke={2} />}
+        <div className={shake ? 'aida-shake' : ''} style={{ display: 'flex', alignItems: 'flex-start', gap: 11, margin: '18px 2px 0' }}>
+          <button
+            onClick={() => setAgreed((a) => !a)}
+            aria-label={t('auth_agree_link')}
+            aria-checked={agreed}
+            role="checkbox"
+            style={{
+              flexShrink: 0,
+              width: 22,
+              height: 22,
+              marginTop: 1,
+              borderRadius: 7,
+              cursor: 'pointer',
+              display: 'grid',
+              placeItems: 'center',
+              transition: 'all .18s',
+              background: agreed ? 'var(--brand-primary)' : 'var(--surface)',
+              border: '1.5px solid ' + (agreed ? 'var(--brand-primary)' : (shake ? 'var(--brand-secondary)' : 'var(--line-2)')),
+            }}
+          >
+            {agreed && <Icon name="check" size={14} color="#fff" stroke={2.6} />}
+          </button>
+          <p className="t-caption" style={{ margin: 0, lineHeight: 1.5, color: 'var(--ink-2)' }}>
+            {t('auth_agree_pre')}{' '}
+            <button onClick={() => setShowAgreement(true)} style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', color: 'var(--brand-primary)', fontWeight: 800, textDecoration: 'underline', textUnderlineOffset: 2, fontSize: 'inherit', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+              {t('auth_agree_link')}
+            </button>.
+          </p>
+        </div>
+
+        <Button variant="primary" block disabled={!fieldsValid || loading} onClick={submit} style={{ marginTop: 18, padding: '16px', opacity: valid || loading ? 1 : .55 }}>
+          {cta}
+          {!loading && <Icon name={mode === 'free' ? 'wifi' : 'arrowR'} size={18} stroke={2} />}
         </Button>
 
-        <button style={{ display: 'block', margin: '18px auto 0', background: 'none', border: 0, cursor: 'pointer', color: 'var(--brand-primary)', fontWeight: 700, fontSize: 13.5 }}>{t('login_help')}</button>
+        {!agreed && (
+          <p className="t-caption" style={{ textAlign: 'center', margin: '10px 0 0', color: shake ? 'var(--brand-secondary)' : 'var(--ink-3)', transition: 'color .2s' }}>
+            {t('auth_must_agree')}
+          </p>
+        )}
 
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginTop: 30, padding: '14px 16px', borderRadius: 'var(--r-md)', background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
-          <Icon name="shield" size={18} color="var(--brand-secondary)" style={{ flexShrink: 0, marginTop: 1 }} />
-          <p className="t-caption" style={{ margin: 0, lineHeight: 1.45 }}>{t('login_privacy')}</p>
-        </div>
+        {(mode === 'user' || (mode === 'guest' && !!helpText)) && (
+          <button style={{ display: 'block', margin: '16px auto 0', background: 'none', border: 0, cursor: 'pointer', color: 'var(--brand-primary)', fontWeight: 700, fontSize: 13.5 }}>
+            {mode === 'user' ? t('auth_create') : helpText}
+          </button>
+        )}
+
+        {showPrivacy && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginTop: 24, padding: '14px 16px', borderRadius: 'var(--r-md)', background: 'var(--surface-2)', border: '1px solid var(--line)' }}>
+            <Icon name="shield" size={18} color="var(--brand-secondary)" style={{ flexShrink: 0, marginTop: 1 }} />
+            <p className="t-caption" style={{ margin: 0, lineHeight: 1.45 }}>{t('login_privacy')}</p>
+          </div>
+        )}
       </div>
+
+      {showAgreement && <AgreementModal onClose={() => setShowAgreement(false)} agreement={login?.agreement} />}
     </div>
   );
 }
