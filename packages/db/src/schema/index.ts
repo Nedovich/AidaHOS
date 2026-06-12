@@ -6,3 +6,4 @@ export * from './audit';
 export * from './simulation';
 export * from './surveys';
 export * from './guest-stays';
+export * from './events';
