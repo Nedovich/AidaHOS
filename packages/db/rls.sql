@@ -109,11 +109,37 @@ create policy guest_stays_rls on guest_stays
     or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid
   );
 
+-- ---- events / event_categories / event_locations (group-scoped) ----
+-- Same predicate shape as surveys (super_admin OR matching hotel_group_id).
+alter table event_categories enable row level security;
+drop policy if exists event_categories_rls on event_categories;
+create policy event_categories_rls on event_categories
+  for all to public
+  using (current_setting('app.current_role', true) = 'super_admin' or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid)
+  with check (current_setting('app.current_role', true) = 'super_admin' or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid);
+
+alter table event_locations enable row level security;
+drop policy if exists event_locations_rls on event_locations;
+create policy event_locations_rls on event_locations
+  for all to public
+  using (current_setting('app.current_role', true) = 'super_admin' or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid)
+  with check (current_setting('app.current_role', true) = 'super_admin' or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid);
+
+alter table events enable row level security;
+drop policy if exists events_rls on events;
+create policy events_rls on events
+  for all to public
+  using (current_setting('app.current_role', true) = 'super_admin' or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid)
+  with check (current_setting('app.current_role', true) = 'super_admin' or hotel_group_id = nullif(current_setting('app.current_hotel_group', true), '')::uuid);
+
 -- Least-privilege grants for the runtime role (owner runs this file).
 do $$ begin
   if exists (select 1 from pg_roles where rolname = 'aidahos_app') then
     grant select, insert, update, delete on surveys to aidahos_app;
     grant select, insert, update, delete on survey_responses to aidahos_app;
     grant select, insert, update, delete on guest_stays to aidahos_app;
+    grant select, insert, update, delete on event_categories to aidahos_app;
+    grant select, insert, update, delete on event_locations to aidahos_app;
+    grant select, insert, update, delete on events to aidahos_app;
   end if;
 end $$;

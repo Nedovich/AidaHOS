@@ -4,8 +4,10 @@ import {
   getNas,
   getNasSessionStats,
   isRadiusConfigured,
+  listEventLocations,
   listRadiusUsers,
   nasShortname,
+  type Loc,
   type NasSessionStats,
   type RadiusUserSummary,
 } from '@aidahos/db';
@@ -13,6 +15,7 @@ import { ConnectionsTable } from '@/components/console/connections-table';
 import { L, type Lang } from '@/lib/i18n';
 import { initials } from '@/lib/avatar';
 import { HotelForm } from '@/components/console/hotel-form';
+import { LocationManager } from '@/components/console/events/location-manager';
 
 const STATUS: Record<string, [string, readonly [string, string]]> = {
   active: ['ok', ['Aktif', 'Active']],
@@ -129,8 +132,15 @@ export async function HotelDetailView({
     ['overview', ['Genel Bakış', 'Overview']],
     ['network', ['Ağ & Cihazlar', 'Network & Devices']],
     ['connections', ['Bağlantılar', 'Connections']],
+    ['settings', ['Ayarlar', 'Settings']],
     ['edit', ['Düzenle', 'Edit']],
   ];
+
+  // Event locations (hotel-bound) for the Settings tab.
+  let locations: { id: string; name: Loc }[] = [];
+  if (tab === 'settings') {
+    try { locations = (await listEventLocations(hotel.id)).map((l) => ({ id: l.id, name: l.name as Loc })); } catch { locations = []; }
+  }
 
   let radiusUsers: RadiusUserSummary[] = [];
   if (tab === 'connections' && isCentral) {
@@ -204,6 +214,8 @@ export async function HotelDetailView({
           groups={groups}
           defaults={{ name: hotel.name, status: hotel.status, hotelGroupId: hotel.hotelGroupId, radiusBackend: hotel.radiusBackend, mikrotikIp: hotel.mikrotikIp, exitIp: hotel.exitIp, nasSecret: hotel.nasSecret, mikrotikApiUser: hotel.mikrotikApiUser, mikrotikApiPassword: hotel.mikrotikApiPassword, mikrotikApiPort: hotel.mikrotikApiPort }}
         />
+      ) : tab === 'settings' ? (
+        <LocationManager consoleHotelId={hotel.id} hotelId={hotel.id} locations={locations} />
       ) : !isCentral && (tab === 'connections' || tab === 'network') ? (
         <div className="card">
           <div className="card__head">

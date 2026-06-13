@@ -8,6 +8,7 @@ import '@/styles/console/survey-wizard.css';
 import '@/styles/console/portal.css';
 import '@/styles/console/analytics.css';
 import '@/styles/console/events.css';
+import '@/styles/console/dining.css';
 import { getHotelById } from '@aidahos/db';
 import { canAccessHotel, getSession } from '@/lib/auth';
 import { getLang } from '@/lib/i18n-server';

@@ -1,7 +1,10 @@
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, sql } from 'drizzle-orm';
 import { db, withTenant } from './client';
 import {
   auditLogs,
+  eventCategories,
+  eventLocations,
+  events,
   guestStays,
   hotelGroups,
   hotels,
@@ -11,7 +14,10 @@ import {
   surveys,
   users,
 } from './schema';
-import { defaultPortalConfig, parsePortalStore, withDefaults, type PortalConfig } from './portal-config';
+import { defaultPortalConfig, parsePortalStore, withDefaults, type Loc, type PortalConfig } from './portal-config';
+
+type EventStatus = 'draft' | 'scheduled' | 'live' | 'full' | 'completed' | 'cancelled';
+export interface EventOptions { registrationRequired?: boolean; paid?: boolean; maxPerBooking?: number; recurring?: boolean }
 
 type AppRole = 'super_admin' | 'admin' | 'user' | 'customer';
 const SUPER: { role: AppRole } = { role: 'super_admin' };
@@ -948,4 +954,155 @@ export async function createSurveyResponse(input: {
       .returning();
     return r[0]!;
   });
+}
+
+/* ============================================================
+   Events — categories (group), locations (hotel), events (group+hotel)
+   All group-scoped; written as SUPER (console actions gate access).
+   ============================================================ */
+
+export async function listEventCategories(hotelGroupId: string) {
+  return withTenant(SUPER, (tx) =>
+    tx.select().from(eventCategories).where(eq(eventCategories.hotelGroupId, hotelGroupId)).orderBy(asc(eventCategories.sortOrder), asc(eventCategories.createdAt)),
+  );
+}
+
+export async function createEventCategory(input: { hotelGroupId: string; name: Loc; color: string; icon?: string | null; sortOrder?: number }) {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx.insert(eventCategories).values({
+      hotelGroupId: input.hotelGroupId,
+      name: input.name,
+      color: input.color,
+      icon: input.icon ?? null,
+      sortOrder: input.sortOrder ?? 0,
+    }).returning();
+    return r[0]!;
+  });
+}
+
+export async function updateEventCategory(id: string, patch: { name?: Loc; color?: string; icon?: string | null }) {
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+  if (patch.name !== undefined) set.name = patch.name;
+  if (patch.color !== undefined) set.color = patch.color;
+  if (patch.icon !== undefined) set.icon = patch.icon;
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx.update(eventCategories).set(set).where(eq(eventCategories.id, id)).returning();
+    return r[0] ?? null;
+  });
+}
+
+export async function deleteEventCategory(id: string): Promise<void> {
+  await withTenant(SUPER, (tx) => tx.delete(eventCategories).where(eq(eventCategories.id, id)));
+}
+
+export async function listEventLocations(hotelId: string) {
+  return withTenant(SUPER, (tx) =>
+    tx.select().from(eventLocations).where(eq(eventLocations.hotelId, hotelId)).orderBy(asc(eventLocations.sortOrder), asc(eventLocations.createdAt)),
+  );
+}
+
+/** All locations across a group's hotels (for the Create Event form's hotel→location map). */
+export async function listGroupEventLocations(hotelGroupId: string) {
+  return withTenant(SUPER, (tx) =>
+    tx.select().from(eventLocations).where(eq(eventLocations.hotelGroupId, hotelGroupId)).orderBy(asc(eventLocations.sortOrder), asc(eventLocations.createdAt)),
+  );
+}
+
+export async function createEventLocation(input: { hotelGroupId: string; hotelId: string; name: Loc; sortOrder?: number }) {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx.insert(eventLocations).values({
+      hotelGroupId: input.hotelGroupId,
+      hotelId: input.hotelId,
+      name: input.name,
+      sortOrder: input.sortOrder ?? 0,
+    }).returning();
+    return r[0]!;
+  });
+}
+
+export async function updateEventLocation(id: string, patch: { name?: Loc }) {
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+  if (patch.name !== undefined) set.name = patch.name;
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx.update(eventLocations).set(set).where(eq(eventLocations.id, id)).returning();
+    return r[0] ?? null;
+  });
+}
+
+export async function deleteEventLocation(id: string): Promise<void> {
+  await withTenant(SUPER, (tx) => tx.delete(eventLocations).where(eq(eventLocations.id, id)));
+}
+
+export async function listEvents(hotelGroupId: string, opts?: { hotelId?: string }) {
+  const conds = [eq(events.hotelGroupId, hotelGroupId)];
+  if (opts?.hotelId) conds.push(eq(events.hotelId, opts.hotelId));
+  return withTenant(SUPER, (tx) =>
+    tx.select().from(events).where(and(...conds)).orderBy(desc(events.startsAt)),
+  );
+}
+
+export async function getEventById(id: string) {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx.select().from(events).where(eq(events.id, id));
+    return r[0] ?? null;
+  });
+}
+
+export async function createEvent(input: {
+  hotelGroupId: string;
+  hotelId: string;
+  categoryId?: string | null;
+  locationId?: string | null;
+  name: Loc;
+  description?: Loc;
+  coverUrl?: string | null;
+  startsAt?: Date | null;
+  endsAt?: Date | null;
+  capacity?: number;
+  status?: EventStatus;
+  options?: EventOptions;
+}) {
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx.insert(events).values({
+      hotelGroupId: input.hotelGroupId,
+      hotelId: input.hotelId,
+      categoryId: input.categoryId ?? null,
+      locationId: input.locationId ?? null,
+      name: input.name,
+      description: input.description ?? {},
+      coverUrl: input.coverUrl ?? null,
+      startsAt: input.startsAt ?? null,
+      endsAt: input.endsAt ?? null,
+      capacity: input.capacity ?? 0,
+      status: input.status ?? 'draft',
+      options: input.options ?? {},
+    }).returning();
+    return r[0]!;
+  });
+}
+
+export async function updateEvent(id: string, patch: {
+  categoryId?: string | null;
+  locationId?: string | null;
+  name?: Loc;
+  description?: Loc;
+  coverUrl?: string | null;
+  startsAt?: Date | null;
+  endsAt?: Date | null;
+  capacity?: number;
+  status?: EventStatus;
+  options?: EventOptions;
+}) {
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+  for (const k of ['categoryId', 'locationId', 'name', 'description', 'coverUrl', 'startsAt', 'endsAt', 'capacity', 'status', 'options'] as const) {
+    if (patch[k] !== undefined) set[k] = patch[k];
+  }
+  return withTenant(SUPER, async (tx) => {
+    const r = await tx.update(events).set(set).where(eq(events.id, id)).returning();
+    return r[0] ?? null;
+  });
+}
+
+export async function deleteEvent(id: string): Promise<void> {
+  await withTenant(SUPER, (tx) => tx.delete(events).where(eq(events.id, id)));
 }

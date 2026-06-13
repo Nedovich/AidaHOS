@@ -1,16 +1,32 @@
 import Link from 'next/link';
-import { BarChart3, Calendar, Grid2X2, Layers3, Settings, Sparkles, Users } from 'lucide-react';
+import {
+  BarChart3,
+  ClipboardList,
+  Grid2X2,
+  LayoutGrid,
+  MessageSquareText,
+  Sparkles,
+  Table2,
+  UtensilsCrossed,
+} from 'lucide-react';
 import { L, type Lang } from '@/lib/i18n';
 
 const ITEMS = [
   { id: 'overview', href: '', icon: Grid2X2, label: ['Genel Bakış', 'Overview'] as const },
-  { id: 'calendar', href: '/calendar', icon: Calendar, label: ['Takvim', 'Calendar'] as const },
-  { id: 'list', href: '/list', icon: Layers3, label: ['Etkinlikler', 'Events'] as const },
+  { id: 'venues', href: '/venues', icon: UtensilsCrossed, label: ['Mekanlar', 'Venues'] as const },
   {
-    id: 'participants',
-    href: '/participants',
-    icon: Users,
-    label: ['Katılımcılar', 'Participants'] as const,
+    id: 'reservations',
+    href: '/reservations',
+    icon: ClipboardList,
+    label: ['Rezervasyonlar', 'Reservations'] as const,
+  },
+  { id: 'tables', href: '/tables', icon: Table2, label: ['Masalar', 'Tables'] as const },
+  { id: 'menu', href: '/menu', icon: LayoutGrid, label: ['Menü', 'Menu'] as const },
+  {
+    id: 'requests',
+    href: '/requests',
+    icon: MessageSquareText,
+    label: ['Özel Talepler', 'Guest Requests'] as const,
   },
   {
     id: 'analytics',
@@ -18,10 +34,9 @@ const ITEMS = [
     icon: BarChart3,
     label: ['Analitik', 'Analytics'] as const,
   },
-  { id: 'settings', href: '/settings', icon: Settings, label: ['Ayarlar', 'Settings'] as const },
 ];
 
-export function EventsSubnav({
+export function DiningSubnav({
   hotelId,
   active,
   lang,
@@ -30,12 +45,12 @@ export function EventsSubnav({
   active: string;
   lang: Lang;
 }) {
-  const base = `/h/${hotelId}/events`;
+  const base = `/h/${hotelId}/dining`;
 
   return (
     <nav
-      className="subnav events-subnav"
-      aria-label={L(['Etkinlik sayfaları', 'Event pages'], lang)}
+      className="subnav dining-subnav"
+      aria-label={L(['Restoran sayfaları', 'Dining pages'], lang)}
     >
       {ITEMS.map((item) => {
         const Icon = item.icon;
@@ -51,7 +66,7 @@ export function EventsSubnav({
         );
       })}
       <span className="subnav__sp" />
-      <Link className="subnav__i events-subnav__ai" href={`${base}/ai`}>
+      <Link className="subnav__i dining-subnav__ai" href={`${base}/ai`}>
         <Sparkles size={16} />
         {L(['AI Asistan', 'AI Assistant'], lang)}
       </Link>

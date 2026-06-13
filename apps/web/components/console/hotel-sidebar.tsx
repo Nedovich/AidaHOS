@@ -59,7 +59,7 @@ const NAV: { group: Pair; items: Item[] }[] = [
       { id: 'ai', icon: Sparkles, label: ['AI Asistan', 'AI Assistant'], soon: true },
       { id: 'events', icon: Calendar, label: ['Etkinlikler', 'Events'] },
       { id: 'spa', icon: Leaf, label: ['Spa', 'Spa'], soon: true },
-      { id: 'dining', icon: UtensilsCrossed, label: ['Restoran', 'Dining'], soon: true },
+      { id: 'dining', icon: UtensilsCrossed, label: ['Restoran', 'Dining'] },
     ],
   },
   {
