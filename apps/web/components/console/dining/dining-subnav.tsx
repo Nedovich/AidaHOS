@@ -2,10 +2,11 @@ import Link from 'next/link';
 import {
   BarChart3,
   ClipboardList,
+  Cog,
   Grid2X2,
   LayoutGrid,
-  MessageSquareText,
   Sparkles,
+  Star,
   Table2,
   UtensilsCrossed,
 } from 'lucide-react';
@@ -25,14 +26,20 @@ const ITEMS = [
   {
     id: 'requests',
     href: '/requests',
-    icon: MessageSquareText,
-    label: ['Özel Talepler', 'Guest Requests'] as const,
+    icon: Star,
+    label: ['Özel Talepler', 'Requests'] as const,
   },
   {
     id: 'analytics',
     href: '/analytics',
     icon: BarChart3,
     label: ['Analitik', 'Analytics'] as const,
+  },
+  {
+    id: 'settings',
+    href: '/settings',
+    icon: Cog,
+    label: ['Ayarlar', 'Settings'] as const,
   },
 ];
 

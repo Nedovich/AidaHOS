@@ -69,12 +69,29 @@ export function EventForm({
   const [saving, setSaving] = useState(false);
 
   const locForHotel = useMemo(() => locations.filter((l) => l.hotelId === hotelSel), [locations, hotelSel]);
-  const valid = !!(name.en || name.tr || name.de || name.ru);
+  const hasName = !!(name.en || name.tr || name.de || name.ru);
+  // A time without a date can't be stored — flag it so we don't silently drop it.
+  const timeWithoutDate = !date && (!!start || !!end);
+  // A date with no start time also can't form a timestamp → would be silently dropped.
+  const dateWithoutTime = !!date && !start;
+  const valid = hasName && !timeWithoutDate && !dateWithoutTime;
 
   const toIso = (t: string) => (date && t ? new Date(`${date}T${t}:00`).toISOString() : null);
 
   const save = async (notify: boolean) => {
-    if (!valid || saving) return;
+    if (saving) return;
+    if (!hasName) {
+      alert(L(['Lütfen etkinlik adını girin.', 'Please enter an event name.'], lang));
+      return;
+    }
+    if (timeWithoutDate) {
+      alert(L(['Saat girdiniz ama tarih seçmediniz. Lütfen bir tarih seçin.', 'You entered a time but no date. Please pick a date.'], lang));
+      return;
+    }
+    if (dateWithoutTime) {
+      alert(L(['Tarih seçtiniz ama başlangıç saati girmediniz. Lütfen başlangıç saatini girin.', 'You picked a date but no start time. Please enter a start time.'], lang));
+      return;
+    }
     setSaving(true);
     const payload = {
       hotelId: hotelSel,
@@ -181,11 +198,11 @@ export function EventForm({
             <div className="events-time-split">
               <div>
                 <label className="flabel">{L(['Başlangıç', 'Start'], lang)}</label>
-                <div className="dateinput events-dateinput"><Clock size={16} /><input type="time" lang="en-GB" value={start} onChange={(e) => setStart(e.target.value)} style={inputBase} /></div>
+                <TimeSelect value={start} onChange={setStart} placeholder={L(['Seçin…', 'Select…'], lang)} />
               </div>
               <div>
                 <label className="flabel">{L(['Bitiş', 'End'], lang)}</label>
-                <div className="dateinput events-dateinput"><Clock size={16} /><input type="time" lang="en-GB" value={end} onChange={(e) => setEnd(e.target.value)} style={inputBase} /></div>
+                <TimeSelect value={end} onChange={setEnd} placeholder={L(['Seçin…', 'Select…'], lang)} />
               </div>
             </div>
             <div>
@@ -193,6 +210,13 @@ export function EventForm({
               <input className="finput" type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
             </div>
           </div>
+          {(timeWithoutDate || dateWithoutTime) && (
+            <div className="form-sec__d" style={{ color: 'var(--danger)', marginTop: 6 }}>
+              {timeWithoutDate
+                ? L(['Saatin kaydedilebilmesi için bir tarih seçin.', 'Pick a date so the time can be saved.'], lang)
+                : L(['Tarihin kaydedilebilmesi için başlangıç saatini girin.', 'Enter a start time so the date can be saved.'], lang)}
+            </div>
+          )}
         </section>
 
         {/* Options */}
@@ -247,6 +271,33 @@ export function EventForm({
 
       {showCat && <AddCategoryModal hotelId={consoleHotelId} onClose={() => setShowCat(false)} onAdded={() => router.refresh()} />}
       {showLoc && <AddLocationModal consoleHotelId={consoleHotelId} hotelId={hotelSel} onClose={() => setShowLoc(false)} onAdded={() => router.refresh()} />}
+    </div>
+  );
+}
+
+// 24-hour HH:mm options in 15-minute steps (00:00 … 23:45).
+const TIME_OPTIONS: string[] = (() => {
+  const out: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      out.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    }
+  }
+  return out;
+})();
+
+/** 24-hour time picker — locale-independent, always emits HH:mm. */
+function TimeSelect({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  // If an existing value is off-grid (e.g. 16:05), keep it selectable.
+  const options = value && !TIME_OPTIONS.includes(value) ? [value, ...TIME_OPTIONS] : TIME_OPTIONS;
+  return (
+    <div className="dateinput events-dateinput">
+      <Clock size={16} />
+      <select value={value} onChange={(e) => onChange(e.target.value)} style={inputBase}>
+        <option value="">{placeholder}</option>
+        {options.map((t) => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <ChevronDown size={16} />
     </div>
   );
 }

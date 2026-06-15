@@ -3,6 +3,7 @@ import type { Lang } from '@/lib/i18n';
 export type LocalizedText = readonly [string, string];
 export type VenueStatus = 'open' | 'limited' | 'closed';
 export type ReservationStatus = 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'noshow';
+export type TableStatus = 'available' | 'reserved' | 'occupied' | 'cleaning' | 'oos';
 export type VenueIcon = 'utensils' | 'wine' | 'coffee' | 'waves' | 'star';
 
 export type DiningVenue = {
@@ -40,6 +41,39 @@ export function formatEuro(value: number) {
   if (value >= 1000) return `€${(value / 1000).toFixed(value >= 10000 ? 1 : 1)}k`;
   return `€${value}`;
 }
+
+export const TABLE_STATUSES: Record<TableStatus, { color: string; label: readonly [string, string] }> = {
+  available: { color: 'var(--success)', label: ['Musait', 'Available'] },
+  reserved: { color: 'var(--accent)', label: ['Rezerve', 'Reserved'] },
+  occupied: { color: 'var(--warning)', label: ['Dolu', 'Occupied'] },
+  cleaning: { color: 'var(--info)', label: ['Temizlik', 'Cleaning'] },
+  oos: { color: 'var(--text-3)', label: ['Servis Dışı', 'Out of Service'] },
+};
+
+export type DiningTable = {
+  id: string;
+  label: string;
+  seats: number;
+  venueId: string;
+  status: TableStatus;
+  guest?: string;
+  room?: string;
+};
+
+export const DINING_TABLES: DiningTable[] = [
+  { id: 'a-01', label: 'A-01', seats: 2, venueId: 'alacarte', status: 'occupied', guest: 'Webb', room: '1105' },
+  { id: 'a-02', label: 'A-02', seats: 2, venueId: 'alacarte', status: 'available' },
+  { id: 'a-03', label: 'A-03', seats: 4, venueId: 'alacarte', status: 'reserved', guest: 'Russo', room: '615' },
+  { id: 'a-04', label: 'A-04', seats: 4, venueId: 'alacarte', status: 'occupied', guest: 'Yildiz', room: '508' },
+  { id: 'a-05', label: 'A-05', seats: 6, venueId: 'alacarte', status: 'reserved', guest: 'Russo', room: '615' },
+  { id: 'a-06', label: 'A-06', seats: 2, venueId: 'alacarte', status: 'cleaning' },
+  { id: 'a-07', label: 'A-07', seats: 4, venueId: 'alacarte', status: 'available' },
+  { id: 'a-08', label: 'A-08', seats: 2, venueId: 'alacarte', status: 'occupied', guest: 'Palmer', room: '312' },
+  { id: 'a-09', label: 'A-09', seats: 8, venueId: 'alacarte', status: 'reserved', guest: 'Hoffmann', room: '210' },
+  { id: 'a-10', label: 'A-10', seats: 4, venueId: 'alacarte', status: 'available' },
+  { id: 'a-11', label: 'A-11', seats: 2, venueId: 'alacarte', status: 'oos' },
+  { id: 'a-12', label: 'A-12', seats: 2, venueId: 'alacarte', status: 'reserved', guest: 'James', room: '402' },
+];
 
 export const DINING_VENUES: DiningVenue[] = [
   {
