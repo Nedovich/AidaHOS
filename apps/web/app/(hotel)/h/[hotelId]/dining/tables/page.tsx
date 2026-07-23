@@ -79,7 +79,7 @@ export default async function TablePage({ params }: { params: Promise<{ hotelId:
         {Object.entries(TABLE_STATUSES).map((entry) => {
           const countsKey = entry[0];
           return (
-            <span className="legend__i">
+            <span key={countsKey} className="legend__i">
               <span className="ico-dot" style={{ background: entry[1].color }} />
               {L(entry[1].label, lang)}{' '}
               <span style={{ color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>
