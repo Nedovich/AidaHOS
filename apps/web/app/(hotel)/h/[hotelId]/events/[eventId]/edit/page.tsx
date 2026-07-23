@@ -58,7 +58,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ hote
       <EventForm
         consoleHotelId={hotelId}
         lang={lang}
-        hotels={groupHotels.map((h) => ({ id: h.id, name: h.name }))}
+        hotels={groupHotels.map((h) => ({ id: h.id, name: h.name, slug: h.slug }))}
         categories={cats.map((c) => ({ id: c.id, name: c.name as Loc, color: c.color }))}
         locations={locs.map((l) => ({ id: l.id, name: l.name as Loc, hotelId: l.hotelId }))}
         event={event}

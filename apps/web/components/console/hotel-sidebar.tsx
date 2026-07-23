@@ -1,15 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import {
   BarChart3,
   Bell,
   Building2,
   Calendar,
+  Check,
+  ChevronsUpDown,
   ClipboardList,
   CreditCard,
   Database,
+  KeyRound,
   LayoutGrid,
   Layers,
   Leaf,
@@ -48,7 +52,8 @@ const NAV: { group: Pair; items: Item[] }[] = [
     items: [
       { id: 'pms', icon: Database, label: ['PMS', 'PMS'], soon: true },
       { id: 'radius', icon: Shield, label: ['Radius', 'Radius'], soon: true },
-      { id: 'mikrotik', icon: Router, label: ['Mikrotik', 'Mikrotik'], soon: true },
+      { id: 'mikrotik', icon: Router, label: ['Mikrotik', 'Mikrotik'] },
+      { id: 'staff', icon: KeyRound, label: ['Personel', 'Staff'] },
     ],
   },
   {
@@ -71,16 +76,130 @@ const NAV: { group: Pair; items: Item[] }[] = [
   },
 ];
 
-export function HotelSidebar({
+function initials2(name: string) {
+  return name.split(' ').map((s) => s[0]).filter(Boolean).join('').slice(0, 2).toUpperCase() || 'HT';
+}
+
+interface HotelEntry { id: string; name: string; color: string; slug: string }
+
+function PropertySwitcher({
   hotelId,
   hotelName,
+  hotelColor,
   sub,
-  isAdmin = false,
+  groupHotels,
 }: {
   hotelId: string;
   hotelName: string;
+  hotelColor: string;
+  sub: string;
+  groupHotels: HotelEntry[];
+}) {
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const safeColor = hotelColor || '#2F6E78';
+
+  return (
+    <div ref={ref} className={`tenant-wrap${open ? ' open' : ''}`}>
+      <button
+        type="button"
+        className="tenant"
+        onClick={() => setOpen((o) => !o)}
+        style={{ textAlign: 'left' }}
+      >
+        <div
+          className="tenant__logo"
+          style={{
+            background: `${safeColor}1f`,
+            color: safeColor,
+            borderColor: `${safeColor}40`,
+          }}
+        >
+          {initials2(hotelName)}
+        </div>
+        <div className="tenant__meta">
+          <div className="tenant__name">{hotelName}</div>
+          <div className="tenant__role">{sub}</div>
+        </div>
+        <span className="tenant__chev">
+          <ChevronsUpDown size={15} />
+        </span>
+      </button>
+
+      <div className="tenant-pop">
+        <div className="tnp__head">Otel Seç / Switch Property</div>
+        <div className="tnp__list">
+          <div className="tnp__sep">OTELLER / PROPERTIES</div>
+          {groupHotels.map((h) => {
+            const active = h.id === hotelId;
+            const hColor = h.color || '#2F6E78';
+            return (
+              <button
+                key={h.id}
+                type="button"
+                className={`tnp__item${active ? ' on' : ''}`}
+                onClick={() => {
+                  setOpen(false);
+                  router.push(`/h/${h.id}/dashboard`);
+                }}
+              >
+                <div
+                  className="tnp__logo"
+                  style={{
+                    background: `${hColor}1f`,
+                    color: hColor,
+                    borderColor: `${hColor}40`,
+                  }}
+                >
+                  {initials2(h.name)}
+                </div>
+                <div className="tnp__meta">
+                  <div className="tnp__name">{h.name}</div>
+                  <div className="tnp__sub">
+                    <span className="tnp__dot" style={{ background: 'var(--success)' }} />
+                    {h.slug}
+                  </div>
+                </div>
+                {active && (
+                  <span className="tnp__check">
+                    <Check size={14} />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function HotelSidebar({
+  hotelId,
+  hotelName,
+  hotelColor = '#2F6E78',
+  sub,
+  isAdmin = false,
+  groupHotels = [],
+}: {
+  hotelId: string;
+  hotelName: string;
+  hotelColor?: string;
   sub: string;
   isAdmin?: boolean;
+  groupHotels?: HotelEntry[];
 }) {
   const pathname = usePathname();
   const lang = useLang();
@@ -102,13 +221,13 @@ export function HotelSidebar({
         </div>
       </div>
 
-      <div className="tenant">
-        <div className="tenant__logo">{hotelName.slice(0, 2).toUpperCase()}</div>
-        <div className="tenant__meta">
-          <div className="tenant__name">{hotelName}</div>
-          <div className="tenant__role">{sub}</div>
-        </div>
-      </div>
+      <PropertySwitcher
+        hotelId={hotelId}
+        hotelName={hotelName}
+        hotelColor={hotelColor}
+        sub={sub}
+        groupHotels={groupHotels}
+      />
 
       <nav className="nav">
         {NAV.map((g) => (

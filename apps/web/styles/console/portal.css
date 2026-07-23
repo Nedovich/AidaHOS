@@ -246,20 +246,20 @@
 .gp-excard__n { font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; margin-top:9px; opacity:.85; }
 
 /* ============ EVENTS ============ */
-.gp-events { flex:1; overflow-y:auto; padding:6px 22px 88px; }
-.gp-events__h { font-family:var(--gp-display); font-size:32px; }
-.gp-evchips { display:flex; gap:9px; margin:15px 0 2px; }
-.gp-evchip { padding:8px 17px; border-radius:99px; font-size:13px; font-weight:600; border:1px solid color-mix(in srgb,var(--gp-text2) 24%,transparent); color:var(--gp-text,#33302a); background:var(--gp-surface,#fff); }
-.gp-evchip.on { background:var(--gp-text,#23201c); color:var(--gp-bg,#f6f0e6); border-color:transparent; }
-.gp-evcard { margin-top:16px; border-radius:20px; overflow:hidden; position:relative; height:186px; color:#fff; display:flex; align-items:flex-end; }
-.gp-evcard__img { position:absolute; inset:0; }
-.gp-evcard__img::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(12,10,8,.15) 0%, transparent 35%, rgba(12,10,8,.78) 100%); }
-.gp-evcard__time { position:absolute; top:14px; left:14px; z-index:2; background:var(--gp-surface,#fff); color:var(--gp-text,#23201c); font-family:var(--gp-display); font-size:16px; padding:4px 13px; border-radius:99px; box-shadow:var(--shadow-sm); }
-.gp-evcard__add { position:absolute; top:13px; right:14px; z-index:2; width:36px; height:36px; border-radius:99px; background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.32); backdrop-filter:blur(6px); display:grid; place-items:center; color:#fff; }
-.gp-evcard__add svg { width:18px; height:18px; }
-.gp-evcard__in { position:relative; z-index:2; padding:16px; }
-.gp-evcard__t { font-family:var(--gp-display); font-size:22px; line-height:1.05; }
-.gp-evcard__loc { display:flex; align-items:center; gap:5px; font-size:12.5px; font-weight:600; opacity:.92; margin-top:6px; }
+.gp-events { flex:1; overflow-y:auto; padding:2px 22px 96px; }
+.gp-events__h { font-family:var(--gp-display); font-size:34px; line-height:1; letter-spacing:-.02em; }
+.gp-evchips { display:flex; gap:12px; margin:18px 0 4px; }
+.gp-evchip { padding:13px 24px; border-radius:99px; font-size:15px; font-weight:700; line-height:1; border:1px solid color-mix(in srgb, var(--gp-primary) 18%, #d9cdbd); color:var(--gp-text2,#6f675b); background:var(--gp-surface,#fff); box-shadow:0 1px 0 rgba(255,255,255,.82) inset; }
+.gp-evchip.on { background:var(--gp-text,#2d2925); color:#fff; border-color:transparent; box-shadow:none; }
+.gp-evcard { margin-top:18px; border-radius:30px; overflow:hidden; position:relative; height:220px; color:#fff; display:flex; align-items:flex-end; box-shadow:0 16px 34px -18px rgba(20,16,10,.38); }
+.gp-evcard__img { position:absolute; inset:0; background-size:cover; background-position:center; background-repeat:no-repeat; }
+.gp-evcard__img::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(12,10,8,.08) 0%, transparent 32%, rgba(12,10,8,.78) 100%); }
+.gp-evcard__time { position:absolute; top:16px; left:16px; z-index:2; background:rgba(255,255,255,.94); color:var(--gp-text,#23201c); font-family:var(--gp-display); font-size:17px; font-weight:600; padding:6px 18px; border-radius:99px; box-shadow:0 10px 24px -18px rgba(20,16,10,.4); }
+.gp-evcard__add { position:absolute; top:16px; right:16px; z-index:2; width:44px; height:44px; border-radius:99px; background:rgba(166, 141, 124, .45); border:1px solid rgba(255,255,255,.45); backdrop-filter:blur(8px); display:grid; place-items:center; color:#fff; box-shadow:0 12px 24px -18px rgba(20,16,10,.45); }
+.gp-evcard__add svg { width:21px; height:21px; }
+.gp-evcard__in { position:relative; z-index:2; padding:18px 18px 20px; }
+.gp-evcard__t { font-family:var(--gp-display); font-size:24px; line-height:1.06; letter-spacing:-.02em; text-shadow:0 2px 18px rgba(0,0,0,.38); }
+.gp-evcard__loc { display:flex; align-items:center; gap:5px; font-size:12.5px; font-weight:700; opacity:.94; margin-top:7px; }
 .gp-evcard__loc svg { width:13px; height:13px; }
 
 /* bottom tab bar */

@@ -120,7 +120,13 @@ export function SpaCard({ s, onOpen }: { s: Spa; onOpen: (s: Spa) => void }) {
 export function EventCard({ ev, onOpen, joined, onJoin, layout = 'rail' }: { ev: AidaEvent; onOpen: (e: AidaEvent) => void; joined?: boolean; onJoin?: (e: AidaEvent) => void; layout?: 'rail' | 'list' }) {
   const { lang } = useLang();
   return (
-    <button onClick={() => onOpen(ev)} style={{ all: 'unset', cursor: 'pointer', display: 'block', width: '100%' }}>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(ev)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(ev); } }}
+      style={{ cursor: 'pointer', display: 'block', width: '100%' }}
+    >
       <div style={{ borderRadius: 'var(--r-lg)', overflow: 'hidden', background: 'var(--surface)', boxShadow: 'var(--sh-2)' }}>
         <div style={{ height: layout === 'list' ? 220 : 200, position: 'relative' }}>
           <Ph token={ev.ph} photo={ev.photo} grad="linear-gradient(180deg, transparent 45%, rgba(15,10,6,.7) 100%)" />
@@ -138,7 +144,7 @@ export function EventCard({ ev, onOpen, joined, onJoin, layout = 'rail' }: { ev:
           </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 

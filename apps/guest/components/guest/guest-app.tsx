@@ -6,7 +6,7 @@ import { AIDA_BRANDS, AIDA_GUEST, AIDA_NOTIFS, type AidaEvent, type Brand } from
 import { LangCtx, L, makeT, useLang, type Lang } from '@/lib/i18n';
 import type { SurveyOffer } from '@/lib/survey-types';
 import { BottomNav, Icon, Sheet } from './ui';
-import { ComingSoon, Home, Login, Splash } from './screens';
+import { ComingSoon, EventSheet, Events, Home, Login, Splash } from './screens';
 import { CaptiveSurvey } from '@/components/captive-survey';
 
 /** Build the guest Brand tokens from a published portal config (name/colors/monogram). */
@@ -66,6 +66,10 @@ export type LoginFn = (
   dob: string,
 ) => Promise<{ ok: boolean; error?: string; username?: string; survey?: SurveyOffer | null }>;
 
+export type StaffLoginFn = (
+  username: string,
+) => Promise<{ ok: boolean; error?: string; username?: string }>;
+
 /* Post-login invite: "want to take the survey?" → Yes opens the default survey, No skips. */
 function SurveyInvite({ name, onYes, onNo }: { name: string; onYes: () => void; onNo: () => void }) {
   const { lang } = useLang();
@@ -119,14 +123,16 @@ export interface GuestAppProps {
   hotelSlug?: string;
   hotelName?: string | null;
   loginAction?: LoginFn;
+  staffLoginAction?: StaffLoginFn;
   portal?: MikrotikPortal | null;
   startInApp?: boolean;
   session?: GuestSession | null;
   surveyOffer?: SurveyOffer | null;
   portalConfig?: PortalConfig | null;
+  events?: AidaEvent[];
 }
 
-function AppInner({ loginAction, portal, hotelSlug, startInApp, session, surveyOffer, portalConfig }: { loginAction?: LoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; startInApp?: boolean; session?: GuestSession | null; surveyOffer?: SurveyOffer | null; portalConfig?: PortalConfig | null }) {
+function AppInner({ loginAction, staffLoginAction, portal, hotelSlug, startInApp, session, surveyOffer, portalConfig, events }: { loginAction?: LoginFn; staffLoginAction?: StaffLoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; startInApp?: boolean; session?: GuestSession | null; surveyOffer?: SurveyOffer | null; portalConfig?: PortalConfig | null; events?: AidaEvent[] }) {
   const [stage, setStage] = useState<'splash' | 'login' | 'app'>(startInApp ? 'app' : 'splash');
   // Default-survey flow: server passes surveyOffer on the ?connected=1 return; the dev
   // (no-MikroTik) login path supplies it via the loginAction result instead.
@@ -150,6 +156,8 @@ function AppInner({ loginAction, portal, hotelSlug, startInApp, session, surveyO
     : AIDA_GUEST;
   const toggleJoin = (ev: AidaEvent) =>
     setJoined((p) => { const n = new Set(p); n.has(ev.id) ? n.delete(ev.id) : n.add(ev.id); return n; });
+  // Real events from the DB; the page always supplies them (possibly empty).
+  const eventList = events ?? [];
 
   const navTo = (key: string) => {
     if (key === 'explore-spa' || key === 'explore-dining') { setTab('explore'); setStack([key]); }
@@ -161,7 +169,7 @@ function AppInner({ loginAction, portal, hotelSlug, startInApp, session, surveyO
     switch (tab) {
       case 'home':
         return (
-          <Home guest={guest} joined={joined} onJoin={toggleJoin} onNav={navTo}
+          <Home guest={guest} joined={joined} onJoin={toggleJoin} onNav={navTo} events={eventList}
             onOpenEvent={(e) => setSheet({ type: 'event', item: e })}
             onOpenDining={(d) => setSheet({ type: 'dining', item: d })}
             onOpenSpa={(s) => setSheet({ type: 'spa', item: s })}
@@ -169,7 +177,8 @@ function AppInner({ loginAction, portal, hotelSlug, startInApp, session, surveyO
             onSurvey={() => setTab('survey')} />
         );
       case 'explore': return <ComingSoon title="Keşfet" />;
-      case 'events': return <ComingSoon title="Etkinlikler" />;
+      case 'events':
+        return <Events joined={joined} onJoin={toggleJoin} events={eventList} onOpenEvent={(e) => setSheet({ type: 'event', item: e })} />;
       case 'messages': return <ComingSoon title="Mesajlar" />;
       case 'profile': return <ComingSoon title="Profil" />;
       case 'survey': return <ComingSoon title="Anket" />;
@@ -196,6 +205,7 @@ function AppInner({ loginAction, portal, hotelSlug, startInApp, session, surveyO
         <Login
           brand={brand}
           loginAction={loginAction}
+          staffLoginAction={staffLoginAction}
           portal={portal}
           hotelSlug={hotelSlug}
           login={portalConfig?.login}
@@ -225,12 +235,19 @@ function AppInner({ loginAction, portal, hotelSlug, startInApp, session, surveyO
       {stage === 'app' && surveyOpen && offer && (
         <CaptiveSurvey offer={offer} onDone={() => { setSurveyOpen(false); clearUrl(); }} />
       )}
+      <EventSheet
+        open={sheet.type === 'event'}
+        ev={sheet.type === 'event' ? (sheet.item as AidaEvent) : null}
+        joined={sheet.type === 'event' && sheet.item ? joined.has((sheet.item as AidaEvent).id) : false}
+        onJoin={toggleJoin}
+        onClose={() => setSheet({ type: null })}
+      />
       <ReceptionSheet open={sheet.type === 'reception'} onClose={() => setSheet({ type: null })} />
     </div>
   );
 }
 
-export function GuestApp({ loginAction, portal, hotelSlug, startInApp, session, surveyOffer, portalConfig }: GuestAppProps = {}) {
+export function GuestApp({ loginAction, staffLoginAction, portal, hotelSlug, startInApp, session, surveyOffer, portalConfig, events }: GuestAppProps = {}) {
   // Initial language = the portal's default (unless the guest already picked one).
   const [lang, setLangState] = useState<Lang>((portalConfig?.langs.default as Lang) ?? 'en');
   useEffect(() => {
@@ -243,7 +260,7 @@ export function GuestApp({ loginAction, portal, hotelSlug, startInApp, session, 
   return (
     <LangCtx.Provider value={value}>
       <div style={{ position: 'relative', width: '100%', maxWidth: 440, height: '100dvh', margin: '0 auto', overflow: 'hidden', background: 'var(--bg)', boxShadow: '0 0 80px -20px rgba(40,25,12,.25)' }}>
-        <AppInner loginAction={loginAction} portal={portal} hotelSlug={hotelSlug} startInApp={startInApp} session={session} surveyOffer={surveyOffer} portalConfig={portalConfig} />
+        <AppInner loginAction={loginAction} staffLoginAction={staffLoginAction} portal={portal} hotelSlug={hotelSlug} startInApp={startInApp} session={session} surveyOffer={surveyOffer} portalConfig={portalConfig} events={events} />
       </div>
     </LangCtx.Provider>
   );

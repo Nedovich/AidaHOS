@@ -9,7 +9,8 @@ import '@/styles/console/portal.css';
 import '@/styles/console/analytics.css';
 import '@/styles/console/events.css';
 import '@/styles/console/dining.css';
-import { getHotelById } from '@aidahos/db';
+import '@/styles/console/staff.css';
+import { getHotelById, getHotelsForGroup } from '@aidahos/db';
 import { canAccessHotel, getSession } from '@/lib/auth';
 import { getLang } from '@/lib/i18n-server';
 import { L } from '@/lib/i18n';
@@ -46,6 +47,9 @@ export default async function HotelLayout({
   if (!hotel) redirect('/no-hotel');
   if (!(await canAccessHotel(hotel.id, hotel.hotelGroupId))) redirect('/no-hotel');
 
+  // Fetch sibling hotels for the property switcher
+  const groupHotels = await getHotelsForGroup(hotel.hotelGroupId);
+
   const lang = await getLang();
   const name = session.user.name ?? 'Yönetici';
   const roleLabel =
@@ -60,8 +64,10 @@ export default async function HotelLayout({
         <HotelSidebar
           hotelId={hotel.id}
           hotelName={hotel.name}
+          hotelColor={hotel.color}
           sub={roleLabel}
           isAdmin={session.user.role === 'admin'}
+          groupHotels={groupHotels.map((h) => ({ id: h.id, name: h.name, color: h.color, slug: h.slug }))}
         />
         <div className="main">
           <ConsoleHeader

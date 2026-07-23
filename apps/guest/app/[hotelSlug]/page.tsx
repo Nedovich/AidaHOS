@@ -1,9 +1,10 @@
 import { cookies } from 'next/headers';
-import { findHotelBySlug, getSimGuestByRoom, parsePortalStore, withDefaults } from '@aidahos/db';
+import { findHotelBySlug, getSimGuestByRoom, listGuestEvents, parsePortalStore, withDefaults } from '@aidahos/db';
 import { GuestApp, type GuestSession } from '@/components/guest/guest-app';
 import { GUEST_COOKIE } from '@/lib/constants';
+import { mapGuestEvents } from '@/lib/events-map';
 import { defaultSurveyOffer } from '@/lib/survey-offer';
-import { loginGuest } from './actions';
+import { loginGuest, loginStaff } from './actions';
 
 // Guest portal for a hotel. In production the MikroTik captive portal redirects
 // guests here (its login.html forwards the hotspot vars as query params). The visual
@@ -22,6 +23,7 @@ export default async function GuestHome({
 
   const hotel = await findHotelBySlug(hotelSlug);
   const loginAction = loginGuest.bind(null, hotelSlug);
+  const staffLoginAction = loginStaff.bind(null, hotelSlug);
 
   // MikroTik hotspot context (passed by login.html). `ll` = link-login-only.
   const ll = one(sp.ll);
@@ -71,16 +73,21 @@ export default async function GuestHome({
   // Per-hotel portal branding/content the admin composed and published (hotels.brand jsonb).
   const portalConfig = hotel ? withDefaults(parsePortalStore(hotel.brand).published, hotel.name) : null;
 
+  // Real guest-facing events for this hotel (visible, not draft/cancelled).
+  const events = hotel ? mapGuestEvents(await listGuestEvents(hotel.id)) : [];
+
   return (
     <GuestApp
       hotelSlug={hotelSlug}
       hotelName={hotel?.name ?? null}
       loginAction={loginAction}
+      staffLoginAction={staffLoginAction}
       portal={portal}
       startInApp={connected || session !== null}
       session={session}
       surveyOffer={surveyOffer}
       portalConfig={portalConfig}
+      events={events}
     />
   );
 }

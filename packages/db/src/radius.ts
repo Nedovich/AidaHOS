@@ -196,6 +196,136 @@ export async function deleteRadiusUser(username: string): Promise<{ removed: num
   return { removed: del.length };
 }
 
+/* ============================================================
+   STAFF users — radcheck + radreply(Mikrotik-Group)
+   Username format: staff-{hotelSlug}-{localUsername}
+   ============================================================ */
+
+export const STAFF_PREFIX = 'staff-';
+
+export function staffUsername(hotelSlug: string, localUsername: string): string {
+  return `${STAFF_PREFIX}${hotelSlug}-${localUsername}`;
+}
+
+export interface StaffUser {
+  username: string;
+  localUsername: string;
+  displayName: string;
+  mikrotikGroup: string;
+  online: boolean;
+  lastSeen: Date | null;
+}
+
+/**
+ * List staff users for a hotel from FreeRADIUS (radcheck).
+ * displayName and mikrotikGroup are NOT read here — they come from AidaHOS
+ * staff_accounts table via listStaffAccounts in queries.ts.
+ * This function only provides online/lastSeen from radacct.
+ */
+export async function listStaffUsersRadiusStats(hotelSlug: string): Promise<
+  { username: string; online: boolean; lastSeen: Date | null }[]
+> {
+  const sql = radiusSql();
+  const prefix = `${STAFF_PREFIX}${hotelSlug}-`;
+  const rows = await sql<{
+    username: string;
+    online: boolean | null;
+    last_seen: Date | null;
+  }[]>`
+    select
+      rc.username,
+      bool_or(ra.radacctid is not null and ra.acctstoptime is null) as online,
+      max(ra.acctstarttime) as last_seen
+    from radcheck rc
+    left join radacct ra on ra.username = rc.username
+    where rc.attribute = 'Cleartext-Password'
+      and rc.username like ${prefix + '%'}
+    group by rc.username`;
+  return rows.map((r) => ({
+    username: r.username,
+    online: Boolean(r.online),
+    lastSeen: r.last_seen,
+  }));
+}
+
+/** @deprecated Use listStaffAccounts from queries.ts instead — combines DB + RADIUS stats */
+export async function listStaffUsers(hotelSlug: string): Promise<StaffUser[]> {
+  const sql = radiusSql();
+  const prefix = `${STAFF_PREFIX}${hotelSlug}-`;
+  const rows = await sql<{
+    username: string;
+    mikrotik_group: string | null;
+    online: boolean | null;
+    last_seen: Date | null;
+  }[]>`
+    select
+      rc.username,
+      (select value from radreply where username = rc.username and attribute = 'Mikrotik-Group' limit 1) as mikrotik_group,
+      bool_or(ra.radacctid is not null and ra.acctstoptime is null) as online,
+      max(ra.acctstarttime) as last_seen
+    from radcheck rc
+    left join radacct ra on ra.username = rc.username
+    where rc.attribute = 'Cleartext-Password'
+      and rc.username like ${prefix + '%'}
+    group by rc.username
+    order by rc.username`;
+  return rows.map((r) => ({
+    username: r.username,
+    localUsername: r.username.slice(prefix.length),
+    displayName: r.username.slice(prefix.length),
+    mikrotikGroup: r.mikrotik_group ?? '',
+    online: Boolean(r.online),
+    lastSeen: r.last_seen,
+  }));
+}
+
+/** Create or update a staff user (radcheck + radreply entries). */
+export async function upsertStaffUser(input: {
+  hotelSlug: string;
+  localUsername: string;
+  displayName: string;
+  password: string;
+  mikrotikGroup: string;
+}): Promise<{ created: boolean }> {
+  const sql = radiusSql();
+  const username = staffUsername(input.hotelSlug, input.localUsername);
+
+  // radcheck: password
+  const existing = await sql<{ id: number }[]>`
+    select id from radcheck where username = ${username} and attribute = 'Cleartext-Password' limit 1`;
+  const created = existing.length === 0;
+  if (existing.length) {
+    await sql`update radcheck set value = ${input.password}, op = ':='
+      where username = ${username} and attribute = 'Cleartext-Password'`;
+  } else {
+    await sql`insert into radcheck (username, attribute, op, value)
+      values (${username}, 'Cleartext-Password', ':=', ${input.password})`;
+  }
+
+  // radreply: Mikrotik-Group (assigns the hotspot profile on the MikroTik)
+  const grpEx = await sql<{ id: number }[]>`
+    select id from radreply where username = ${username} and attribute = 'Mikrotik-Group' limit 1`;
+  if (grpEx.length) {
+    await sql`update radreply set value = ${input.mikrotikGroup}, op = '='
+      where username = ${username} and attribute = 'Mikrotik-Group'`;
+  } else {
+    await sql`insert into radreply (username, attribute, op, value)
+      values (${username}, 'Mikrotik-Group', '=', ${input.mikrotikGroup})`;
+  }
+
+  // Clean up any legacy display-name rows written by older code versions
+  await sql`delete from radreply where username = ${username} and attribute = 'display-name'`;
+
+  return { created };
+}
+
+/** Delete a staff user (radcheck + radreply). */
+export async function deleteStaffUser(username: string): Promise<void> {
+  const sql = radiusSql();
+  await sql`delete from radcheck where username = ${username}`;
+  await sql`delete from radreply where username = ${username}`;
+}
+
 export interface RadAcctSession {
   id: string;
   sessionId: string | null;

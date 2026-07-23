@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, notInArray, sql } from 'drizzle-orm';
 import { db, withTenant } from './client';
 import {
   auditLogs,
@@ -10,6 +10,7 @@ import {
   hotels,
   hotelSimulation,
   memberships,
+  staffAccounts,
   surveyResponses,
   surveys,
   users,
@@ -1048,6 +1049,69 @@ export async function getEventById(id: string) {
   });
 }
 
+export interface GuestEvent {
+  id: string;
+  name: Loc;
+  description: Loc;
+  coverUrl: string | null;
+  startsAt: Date | null;
+  endsAt: Date | null;
+  capacity: number;
+  status: EventStatus;
+  categoryName: Loc | null;
+  categoryColor: string | null;
+  locationName: Loc | null;
+}
+
+/**
+ * Guest-facing events for one hotel — visible in the guest portal, not draft/cancelled,
+ * joined with category (name/color) and location (name). Read as SUPER: the guest app has
+ * no console session, same trusted-server pattern as the other guest reads. Ordered by
+ * start time ascending (soonest first).
+ */
+export async function listGuestEvents(hotelId: string): Promise<GuestEvent[]> {
+  return withTenant(SUPER, async (tx) => {
+    const rows = await tx
+      .select({
+        id: events.id,
+        name: events.name,
+        description: events.description,
+        coverUrl: events.coverUrl,
+        startsAt: events.startsAt,
+        endsAt: events.endsAt,
+        capacity: events.capacity,
+        status: events.status,
+        categoryName: eventCategories.name,
+        categoryColor: eventCategories.color,
+        locationName: eventLocations.name,
+      })
+      .from(events)
+      .leftJoin(eventCategories, eq(events.categoryId, eventCategories.id))
+      .leftJoin(eventLocations, eq(events.locationId, eventLocations.id))
+      .where(
+        and(
+          eq(events.hotelId, hotelId),
+          eq(events.visibility, 'guest_portal'),
+          notInArray(events.status, ['draft', 'cancelled']),
+        ),
+      )
+      .orderBy(asc(events.startsAt));
+    return rows.map((r) => ({
+      id: r.id,
+      name: (r.name ?? {}) as Loc,
+      description: (r.description ?? {}) as Loc,
+      coverUrl: r.coverUrl,
+      startsAt: r.startsAt,
+      endsAt: r.endsAt,
+      capacity: r.capacity,
+      status: r.status as EventStatus,
+      categoryName: (r.categoryName ?? null) as Loc | null,
+      categoryColor: r.categoryColor,
+      locationName: (r.locationName ?? null) as Loc | null,
+    }));
+  });
+}
+
 export async function createEvent(input: {
   hotelGroupId: string;
   hotelId: string;
@@ -1105,4 +1169,116 @@ export async function updateEvent(id: string, patch: {
 
 export async function deleteEvent(id: string): Promise<void> {
   await withTenant(SUPER, (tx) => tx.delete(events).where(eq(events.id, id)));
+}
+
+/* ============================================================
+   Staff accounts — AidaHOS DB side
+   radiusUsername is the full RADIUS key (staff-{slug}-{local})
+   ============================================================ */
+
+export interface StaffAccount {
+  id: number;
+  hotelId: string;
+  radiusUsername: string;
+  localUsername: string;
+  displayName: string;
+  mikrotikGroup: string;
+  online: boolean;
+  lastSeen: Date | null;
+  createdAt: Date;
+}
+
+/** List all staff accounts for a hotel. Pass RADIUS stats in to enrich online/lastSeen. */
+export async function listStaffAccounts(
+  hotelId: string,
+  radiusStats?: { username: string; online: boolean; lastSeen: Date | null }[],
+): Promise<StaffAccount[]> {
+  const rows = await db
+    .select()
+    .from(staffAccounts)
+    .where(eq(staffAccounts.hotelId, hotelId))
+    .orderBy(asc(staffAccounts.localUsername));
+  const statsMap = new Map(radiusStats?.map((s) => [s.username, s]) ?? []);
+  return rows.map((r) => {
+    const stat = statsMap.get(r.radiusUsername);
+    return {
+      id: r.id,
+      hotelId: r.hotelId,
+      radiusUsername: r.radiusUsername,
+      localUsername: r.localUsername,
+      displayName: r.displayName,
+      mikrotikGroup: r.mikrotikGroup,
+      online: stat?.online ?? false,
+      lastSeen: stat?.lastSeen ?? null,
+      createdAt: r.createdAt,
+    };
+  });
+}
+
+export async function getStaffAccount(radiusUsername: string): Promise<StaffAccount | null> {
+  const rows = await db
+    .select()
+    .from(staffAccounts)
+    .where(eq(staffAccounts.radiusUsername, radiusUsername))
+    .limit(1);
+  if (!rows[0]) return null;
+  const r = rows[0];
+  return {
+    id: r.id,
+    hotelId: r.hotelId,
+    radiusUsername: r.radiusUsername,
+    localUsername: r.localUsername,
+    displayName: r.displayName,
+    mikrotikGroup: r.mikrotikGroup,
+    online: false,
+    lastSeen: null,
+    createdAt: r.createdAt,
+  };
+}
+
+export async function upsertStaffAccount(input: {
+  hotelId: string;
+  radiusUsername: string;
+  localUsername: string;
+  displayName: string;
+  mikrotikGroup: string;
+}): Promise<StaffAccount> {
+  const now = new Date();
+  const rows = await db
+    .insert(staffAccounts)
+    .values({
+      hotelId: input.hotelId,
+      radiusUsername: input.radiusUsername,
+      localUsername: input.localUsername,
+      displayName: input.displayName,
+      mikrotikGroup: input.mikrotikGroup,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: staffAccounts.radiusUsername,
+      set: {
+        displayName: input.displayName,
+        mikrotikGroup: input.mikrotikGroup,
+        localUsername: input.localUsername,
+        updatedAt: now,
+      },
+    })
+    .returning();
+  const r = rows[0]!;
+  return {
+    id: r.id,
+    hotelId: r.hotelId,
+    radiusUsername: r.radiusUsername,
+    localUsername: r.localUsername,
+    displayName: r.displayName,
+    mikrotikGroup: r.mikrotikGroup,
+    online: false,
+    lastSeen: null,
+    createdAt: r.createdAt,
+  };
+}
+
+export async function deleteStaffAccount(radiusUsername: string): Promise<void> {
+  await db.delete(staffAccounts).where(eq(staffAccounts.radiusUsername, radiusUsername));
 }

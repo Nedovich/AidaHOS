@@ -169,7 +169,26 @@ export default async function EventsListPage({ params }: { params: Promise<{ hot
                   const status = ev.status as EventStatus;
                   const color = cat?.color ?? 'var(--accent)';
                   return (
-                    <ClickableEventRow href={`${base}/${ev.id}`} key={ev.id}>
+                    <ClickableEventRow
+                      href={`${base}/${ev.id}`}
+                      key={ev.id}
+                      actions={
+                        <div className="rowact events-row-actions">
+                          <Link href={`${base}/${ev.id}`} aria-label={L(['Görüntüle', 'View'], lang)}>
+                            <Eye />
+                          </Link>
+                          <Link href={`${base}/${ev.id}/edit`} aria-label={L(['Düzenle', 'Edit'], lang)}>
+                            <Pencil />
+                          </Link>
+                          <Link href={`${base}/notify`} aria-label={L(['Bildirim gönder', 'Send notification'], lang)}>
+                            <Megaphone />
+                          </Link>
+                          <button type="button" aria-label={L(['Diğer işlemler', 'More actions'], lang)}>
+                            <MoreHorizontal />
+                          </button>
+                        </div>
+                      }
+                    >
                       <td>
                         <Link
                           className="table__name events-table__event events-table__event-link"
@@ -217,34 +236,6 @@ export default async function EventsListPage({ params }: { params: Promise<{ hot
                           <span className="ico-dot" />
                           {L(STATUS_LABELS[status], lang)}
                         </span>
-                      </td>
-                      <td>
-                        <div className="rowact events-row-actions">
-                          <Link
-                            href={`${base}/${ev.id}`}
-                            aria-label={L(['Görüntüle', 'View'], lang)}
-                          >
-                            <Eye />
-                          </Link>
-                          <Link
-                            href={`${base}/${ev.id}/edit`}
-                            aria-label={L(['Düzenle', 'Edit'], lang)}
-                          >
-                            <Pencil />
-                          </Link>
-                          <Link
-                            href={`${base}/notify`}
-                            aria-label={L(['Bildirim gönder', 'Send notification'], lang)}
-                          >
-                            <Megaphone />
-                          </Link>
-                          <button
-                            type="button"
-                            aria-label={L(['Diğer işlemler', 'More actions'], lang)}
-                          >
-                            <MoreHorizontal />
-                          </button>
-                        </div>
                       </td>
                     </ClickableEventRow>
                   );

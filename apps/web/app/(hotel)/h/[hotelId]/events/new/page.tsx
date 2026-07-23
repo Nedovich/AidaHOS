@@ -17,7 +17,7 @@ export default async function NewEventPage({ params }: { params: Promise<{ hotel
     ? await Promise.all([getHotelsForGroup(groupId), listEventCategories(groupId), listGroupEventLocations(groupId)])
     : [[], [], []];
 
-  const hotels = groupHotels.map((h) => ({ id: h.id, name: h.name }));
+  const hotels = groupHotels.map((h) => ({ id: h.id, name: h.name, slug: h.slug }));
   const categories = cats.map((c) => ({ id: c.id, name: c.name as Loc, color: c.color }));
   const locations = locs.map((l) => ({ id: l.id, name: l.name as Loc, hotelId: l.hotelId }));
 

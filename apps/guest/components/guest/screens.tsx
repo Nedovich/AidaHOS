@@ -4,11 +4,11 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { resolveLoc, type PortalAgreement, type PortalLang, type PortalLogin, type PortalSplash } from '@aidahos/db/portal-config';
 import { L, useLang } from '@/lib/i18n';
 import {
-  AIDA_DINING, AIDA_EVENTS, AIDA_EXPERIENCES, AIDA_SPA, AIDA_TONIGHT, AIDA_WEATHER, IMG, PH,
+  AIDA_DINING, AIDA_EXPERIENCES, AIDA_SPA, AIDA_TONIGHT, AIDA_WEATHER, IMG, PH,
   type AidaEvent, type Brand, type Dining, type Experience, type Spa,
 } from '@/lib/data';
 import type { SurveyOffer } from '@/lib/survey-types';
-import { Button, Icon, LangSwitch, Ph, StatusBar } from './ui';
+import { Button, Icon, LangSwitch, Ph, Sheet, StatusBar } from './ui';
 import { DiningCard, EventCard, ExperienceCard, Rail, RowHead, SpaCard, TonightHero, WeatherLine } from './cards';
 
 /* ---------------- Splash ---------------- */
@@ -71,6 +71,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 type LoginFn = (room: string, dob: string) => Promise<{ ok: boolean; error?: string; username?: string; survey?: SurveyOffer | null }>;
+type StaffLoginFn = (username: string) => Promise<{ ok: boolean; error?: string; username?: string }>;
 interface MikrotikPortal { loginUrl: string; orig: string; mac: string }
 
 type LoginMode = 'guest' | 'user' | 'free';
@@ -161,7 +162,7 @@ function AgreementModal({ onClose, agreement }: { onClose: () => void; agreement
   );
 }
 
-export function Login({ brand, onLogin, loginAction, portal, hotelSlug, login }: { brand: Brand; onLogin: (survey?: SurveyOffer | null) => void; loginAction?: LoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; login?: PortalLogin | null }) {
+export function Login({ brand, onLogin, loginAction, staffLoginAction, portal, hotelSlug, login }: { brand: Brand; onLogin: (survey?: SurveyOffer | null) => void; loginAction?: LoginFn; staffLoginAction?: StaffLoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; login?: PortalLogin | null }) {
   const { t, lang } = useLang();
   // Which sign-in tabs the hotel enabled (Guest is always available + is the real system).
   const enabledModes: LoginMode[] = ['guest'];
@@ -185,7 +186,7 @@ export function Login({ brand, onLogin, loginAction, portal, hotelSlug, login }:
   const fieldsValid = mode === 'guest'
     ? room.trim().length >= 1 && dob.replace(/\D/g, '').length === 8
     : mode === 'user'
-      ? /.+@.+\..+/.test(email) && password.trim().length >= 4
+      ? email.trim().length >= 2
       : name.trim().length >= 2 && /.+@.+\..+/.test(email);
   const valid = fieldsValid && agreed;
   const subLabel = mode === 'guest' ? t('login_sub') : mode === 'user' ? t('auth_user_sub') : t('auth_free_sub');
@@ -201,7 +202,32 @@ export function Login({ brand, onLogin, loginAction, portal, hotelSlug, login }:
     setErr(null);
     setLoading(true);
     try {
-      if (mode !== 'guest') {
+      if (mode === 'user') {
+        if (staffLoginAction) {
+          const res = await staffLoginAction(email.trim());
+          if (res.ok && res.username) {
+            if (portal?.loginUrl) {
+              const origin = typeof window !== 'undefined' ? window.location.origin : '';
+              const dst = `${origin}/${hotelSlug ?? ''}?connected=1`;
+              const u = `${portal.loginUrl}?username=${encodeURIComponent(res.username)}&password=${encodeURIComponent('333')}&dst=${encodeURIComponent(dst)}`;
+              window.location.href = u;
+              return;
+            }
+            onLogin(null);
+            return;
+          }
+          setErr(
+            res.error === 'not_found'
+              ? L({ en: 'Hotel not found.', tr: 'Otel bulunamadı.', de: 'Hotel nicht gefunden.', ru: 'Отель не найден.' }, lang)
+              : L({ en: 'Username or password is incorrect.', tr: 'Kullanıcı adı veya şifre hatalı.', de: 'Benutzername oder Passwort ist falsch.', ru: 'Неверное имя пользователя или пароль.' }, lang),
+          );
+        } else {
+          await new Promise((r) => setTimeout(r, 650));
+          onLogin(null);
+        }
+        return;
+      }
+      if (mode === 'free') {
         await new Promise((r) => setTimeout(r, 650));
         return;
       }
@@ -286,17 +312,9 @@ export function Login({ brand, onLogin, loginAction, portal, hotelSlug, login }:
         )}
 
         {mode === 'user' && (
-          <>
-            <Field label={t('auth_email')}>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('auth_email_ph')} inputMode="email" autoCapitalize="none" style={inputStyle} />
-            </Field>
-            <Field label={t('auth_password')}>
-              <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('auth_password_ph')} type="password" style={inputStyle} />
-            </Field>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -4, marginBottom: 4 }}>
-              <button style={{ background: 'none', border: 0, cursor: 'pointer', color: 'var(--brand-primary)', fontWeight: 700, fontSize: 13 }}>{t('auth_forgot')}</button>
-            </div>
-          </>
+          <Field label={t('auth_username')}>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('auth_username_ph')} autoCapitalize="none" autoCorrect="off" spellCheck={false} style={inputStyle} />
+          </Field>
         )}
 
         {mode === 'free' && (
@@ -441,13 +459,14 @@ export interface HomeProps {
   onOpenSpa: (s: Spa) => void;
   onReception: () => void;
   onSurvey: () => void;
+  events: AidaEvent[];
 }
 
-export function Home({ guest, joined, onJoin, onNav, onOpenEvent, onOpenDining, onOpenSpa, onReception, onSurvey }: HomeProps) {
+export function Home({ guest, joined, onJoin, onNav, onOpenEvent, onOpenDining, onOpenSpa, onReception, onSurvey, events }: HomeProps) {
   const { t } = useLang();
-  const today = AIDA_EVENTS.filter((e) => e.day === 'today');
+  const today = events.filter((e) => e.day === 'today');
   const openExperience = (x: Experience) => {
-    const ev = AIDA_EVENTS.find((e) => e.id === x.ref);
+    const ev = events.find((e) => e.id === x.ref);
     if (ev) return onOpenEvent(ev);
     const d = AIDA_DINING.find((dd) => dd.id === x.ref);
     if (d) return onOpenDining(d);
@@ -459,7 +478,7 @@ export function Home({ guest, joined, onJoin, onNav, onOpenEvent, onOpenDining, 
       <StatusBar />
       <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 100 }} className="no-scrollbar">
         <GreetingHeader guest={guest} onProfile={() => onNav('profile')} />
-        <TonightHero item={AIDA_TONIGHT} onReserve={() => { const e = AIDA_EVENTS.find((x) => x.id === 'e3'); if (e) onOpenEvent(e); }} />
+        <TonightHero item={AIDA_TONIGHT} onReserve={() => { const e = today[0] ?? events[0]; if (e) onOpenEvent(e); }} />
 
         <RowHead title={t('h_dining')} action={t('see_all')} onAction={() => onNav('explore-dining')} />
         <div style={{ marginBottom: 34 }}>
@@ -471,10 +490,14 @@ export function Home({ guest, joined, onJoin, onNav, onOpenEvent, onOpenDining, 
           <Rail peek="80%">{AIDA_SPA.map((s) => <SpaCard key={s.id} s={s} onOpen={onOpenSpa} />)}</Rail>
         </div>
 
-        <RowHead title={t('h_today_act')} action={t('see_all')} onAction={() => onNav('events')} />
-        <div style={{ marginBottom: 34 }}>
-          <Rail peek="80%">{today.map((ev) => <EventCard key={ev.id} ev={ev} onOpen={onOpenEvent} joined={joined.has(ev.id)} onJoin={onJoin} />)}</Rail>
-        </div>
+        {today.length > 0 && (
+          <>
+            <RowHead title={t('h_today_act')} action={t('see_all')} onAction={() => onNav('events')} />
+            <div style={{ marginBottom: 34 }}>
+              <Rail peek="80%">{today.map((ev) => <EventCard key={ev.id} ev={ev} onOpen={onOpenEvent} joined={joined.has(ev.id)} onJoin={onJoin} />)}</Rail>
+            </div>
+          </>
+        )}
 
         <RowHead title={t('h_recommended')} />
         <div style={{ marginBottom: 34 }}>
@@ -493,6 +516,174 @@ export function Home({ guest, joined, onJoin, onNav, onOpenEvent, onOpenDining, 
         </div>
       </div>
     </div>
+  );
+}
+
+/* ---------------- Events ---------------- */
+export function Events({
+  joined,
+  onJoin,
+  onOpenEvent,
+  events,
+}: {
+  joined: Set<string>;
+  onJoin: (e: AidaEvent) => void;
+  onOpenEvent: (e: AidaEvent) => void;
+  events: AidaEvent[];
+}) {
+  const { t } = useLang();
+  const [filter, setFilter] = useState<'today' | 'upcoming' | 'all'>('today');
+  const chips: Array<{ id: 'today' | 'upcoming' | 'all'; label: string }> = [
+    { id: 'today', label: t('ev_today') },
+    { id: 'upcoming', label: t('ev_upcoming') },
+    { id: 'all', label: t('ev_all') },
+  ];
+  const items = events.filter((ev) => {
+    if (filter === 'all') return true;
+    if (filter === 'today') return ev.day === 'today';
+    return ev.day !== 'today';
+  });
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+      <StatusBar />
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 22px 104px' }} className="no-scrollbar">
+        <h1 style={{ margin: '6px 0 18px', fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 600, color: 'var(--ink)', lineHeight: 1, letterSpacing: '-.02em' }}>
+          {t('ev_title')}
+        </h1>
+
+        <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+          {chips.map((chip) => {
+            const active = chip.id === filter;
+            return (
+              <button
+                key={chip.id}
+                onClick={() => setFilter(chip.id)}
+                style={{
+                  border: active ? '1px solid transparent' : '1px solid color-mix(in srgb, var(--brand-accent) 26%, var(--line-2))',
+                  background: active ? 'var(--ink)' : 'var(--surface)',
+                  color: active ? '#fff' : 'var(--ink-2)',
+                  borderRadius: 'var(--r-pill)',
+                  padding: '13px 22px',
+                  fontSize: 15,
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  cursor: 'pointer',
+                  boxShadow: active ? 'none' : '0 1px 0 rgba(255,255,255,.78) inset',
+                }}
+              >
+                {chip.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {items.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--ink-2)' }}>
+              <p className="t-body" style={{ margin: 0 }}>{t('ev_empty')}</p>
+            </div>
+          ) : (
+            items.map((ev) => (
+              <EventCard
+                key={ev.id}
+                ev={ev}
+                onOpen={onOpenEvent}
+                joined={joined.has(ev.id)}
+                onJoin={onJoin}
+                layout="list"
+              />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function EventSheet({
+  open,
+  onClose,
+  ev,
+  joined,
+  onJoin,
+}: {
+  open: boolean;
+  onClose: () => void;
+  ev: AidaEvent | null;
+  joined: boolean;
+  onJoin: (e: AidaEvent) => void;
+}) {
+  const { lang, t } = useLang();
+  if (!ev) return null;
+
+  return (
+    <Sheet open={open} onClose={onClose}>
+      <div style={{ padding: '4px 0 0' }}>
+        <div style={{ height: 230, position: 'relative' }}>
+          <Ph token={ev.ph} photo={ev.photo} w={900} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 45%, rgba(20,12,6,.66))', pointerEvents: 'none' }} />
+          <button
+            onClick={onClose}
+            style={{
+              position: 'absolute',
+              top: 14,
+              right: 16,
+              width: 34,
+              height: 34,
+              borderRadius: '50%',
+              background: 'rgba(255,255,255,.2)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,.3)',
+              cursor: 'pointer',
+              display: 'grid',
+              placeItems: 'center',
+              color: '#fff',
+            }}
+          >
+            <Icon name="close" size={18} />
+          </button>
+          <div style={{ position: 'absolute', left: 22, right: 22, bottom: 16 }}>
+            <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 600, color: '#fff', lineHeight: 1.08 }}>
+              {L(ev.title, lang)}
+            </h3>
+          </div>
+        </div>
+
+        <div style={{ padding: '20px 22px 0' }}>
+          <div style={{ display: 'flex', gap: 24, marginBottom: 18, paddingBottom: 18, borderBottom: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <span className="t-caption" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Icon name="clock" size={13} />
+                {t('ev_when')}
+              </span>
+              <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>{ev.time}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <span className="t-caption" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Icon name="pin" size={13} />
+                {t('ev_where')}
+              </span>
+              <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>{L(ev.place, lang)}</span>
+            </div>
+          </div>
+
+          <div className="t-eyebrow" style={{ marginBottom: 8 }}>{t('ev_about')}</div>
+          <p className="t-body" style={{ marginTop: 0, marginBottom: 22 }}>{L(ev.desc, lang)}</p>
+
+          <div style={{ display: 'flex', gap: 12, marginBottom: 6 }}>
+            <Button
+              variant={joined ? 'secondary' : 'primary'}
+              block
+              onClick={() => onJoin(ev)}
+              icon={joined ? 'check' : 'calPlus'}
+            >
+              {joined ? t('b_added') : t('b_add_cal')}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Sheet>
   );
 }
 

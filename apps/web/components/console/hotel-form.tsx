@@ -128,7 +128,7 @@ export function HotelForm({
 
           <FormSection
             title={L(['RADIUS backend', 'RADIUS backend'], lang)}
-            sub={L(['Bu otel hangi RADIUS’u kullanacak? Seçime göre alanlar değişir.', 'Which RADIUS does this hotel use? Fields change with the choice.'], lang)}
+            sub={L(['Bu otel hangi RADIUS\'u kullanacak? Secime gore alanlar degisir.', 'Which RADIUS does this hotel use? Fields change with the choice.'], lang)}
           >
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <BackendCard
@@ -140,46 +140,43 @@ export function HotelForm({
               <BackendCard
                 value="local_mikrotik"
                 icon={<Server size={20} />}
-                title={L(['Otelin kendi MikroTik’i', "Hotel's own MikroTik"], lang)}
-                sub={L(['Otelin MikroTik’ine RouterOS API ile (Tailscale).', "To hotel's MikroTik via RouterOS API (Tailscale)."], lang)}
+                title={L(['Otelin kendi MikroTik\'i', "Hotel's own MikroTik"], lang)}
+                sub={L(['Otelin MikroTik\'ine RouterOS API ile (Tailscale).', "To hotel's MikroTik via RouterOS API (Tailscale)."], lang)}
               />
             </div>
           </FormSection>
 
-          {backend === 'central_freeradius' ? (
+          {backend === 'central_freeradius' && (
             <FormSection
               title={L(['Ağ & FreeRADIUS', 'Network & FreeRADIUS'], lang)}
-              sub={L(['MikroTik ağ geçidi ve NAS bilgileri — FreeRADIUS nas tablosuna yazılır.', 'MikroTik gateway & NAS — written to the FreeRADIUS nas table.'], lang)}
+              sub={L(['NAS bilgileri — FreeRADIUS nas tablosuna yazılır.', 'NAS info — written to the FreeRADIUS nas table.'], lang)}
             >
-              <FormRow label="MikroTik IP">
-                <input name="mikrotikIp" className="pb-input" defaultValue={defaults?.mikrotikIp ?? ''} placeholder="10.10.0.1" />
-              </FormRow>
-              <FormRow label={L(['Çıkış IP', 'Exit IP'], lang)} desc={L(['RADIUS’un MikroTik’i gördüğü public IP.', 'Public IP RADIUS sees the MikroTik from.'], lang)}>
+              <FormRow label={L(['Çıkış IP', 'Exit IP'], lang)} desc={L(['RADIUS\'un MikroTik\'i gördüğü public IP.', 'Public IP RADIUS sees the MikroTik from.'], lang)}>
                 <input name="exitIp" className="pb-input" defaultValue={defaults?.exitIp ?? ''} placeholder="37.155.20.172" />
               </FormRow>
               <FormRow label="NAS Secret" desc={L(['MikroTik ↔ FreeRADIUS paylaşılan sırrı.', 'MikroTik ↔ FreeRADIUS shared secret.'], lang)}>
                 <input name="nasSecret" className="pb-input mono" defaultValue={defaults?.nasSecret ?? ''} />
               </FormRow>
             </FormSection>
-          ) : (
-            <FormSection
-              title={L(['MikroTik API', 'MikroTik API'], lang)}
-              sub={L(['Otelin MikroTik’ine RouterOS v7 REST API ile bağlanılır (Tailscale üzerinden).', "Connects to the hotel's MikroTik via RouterOS v7 REST API (over Tailscale)."], lang)}
-            >
-              <FormRow label={L(['MikroTik host / IP', 'MikroTik host / IP'], lang)} desc={L(['Tailscale IP/host ya da erişilebilir IP.', 'Tailscale IP/host or reachable IP.'], lang)}>
-                <input name="mikrotikIp" className="pb-input" defaultValue={defaults?.mikrotikIp ?? ''} placeholder="100.x.y.z" />
-              </FormRow>
-              <FormRow label={L(['API port', 'API port'], lang)} desc={L(['REST için varsayılan 443.', 'Default 443 for REST.'], lang)}>
-                <input name="mikrotikApiPort" type="number" className="pb-input" defaultValue={defaults?.mikrotikApiPort ?? ''} placeholder="443" />
-              </FormRow>
-              <FormRow label={L(['API kullanıcı', 'API user'], lang)}>
-                <input name="mikrotikApiUser" className="pb-input" defaultValue={defaults?.mikrotikApiUser ?? ''} placeholder="aidahos" />
-              </FormRow>
-              <FormRow label={L(['API parola', 'API password'], lang)}>
-                <input name="mikrotikApiPassword" type="password" className="pb-input mono" defaultValue={defaults?.mikrotikApiPassword ?? ''} />
-              </FormRow>
-            </FormSection>
           )}
+
+          <FormSection
+            title={L(['MikroTik API', 'MikroTik API'], lang)}
+            sub={L(['Hotspot profil yönetimi için RouterOS v7 REST API bağlantı bilgileri.', 'RouterOS v7 REST API credentials for hotspot profile management.'], lang)}
+          >
+            <FormRow label={L(['MikroTik IP / Host', 'MikroTik IP / Host'], lang)} desc={L(['Dışarıdan erişilebilir IP veya host.', 'Publicly reachable IP or hostname.'], lang)}>
+              <input name="mikrotikIp" className="pb-input" defaultValue={defaults?.mikrotikIp ?? ''} placeholder="212.156.223.4" />
+            </FormRow>
+            <FormRow label={L(['API port', 'API port'], lang)} desc={L(['Web arayüzünün açık olduğu port (örn. 85 veya 80).', 'Port where the web interface is open (e.g. 85 or 80).'], lang)}>
+              <input name="mikrotikApiPort" type="number" className="pb-input" defaultValue={defaults?.mikrotikApiPort ?? ''} placeholder="85" />
+            </FormRow>
+            <FormRow label={L(['API kullanıcı', 'API user'], lang)}>
+              <input name="mikrotikApiUser" className="pb-input" autoComplete="off" defaultValue={defaults?.mikrotikApiUser ?? ''} placeholder="admin" />
+            </FormRow>
+            <FormRow label={L(['API parola', 'API password'], lang)}>
+              <input name="mikrotikApiPassword" type="password" className="pb-input mono" autoComplete="new-password" defaultValue={defaults?.mikrotikApiPassword ?? ''} />
+            </FormRow>
+          </FormSection>
 
           <FormFoot note={isEdit ? L(['Değişiklikler kaydedildiğinde uygulanır.', 'Changes apply when saved.'], lang) : L(['Otel kurulum durumunda oluşturulur.', 'The hotel is created in setup state.'], lang)}>
             <Link className="btn btn--subtle btn--sm" href="/hotels">

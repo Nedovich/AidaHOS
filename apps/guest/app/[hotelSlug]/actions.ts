@@ -109,6 +109,39 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
   return { ok: true, guestName: res.guest.guestName, username, survey };
 }
 
+/**
+ * Staff (personel) captive-portal login.
+ * User enters their short username (e.g. "aysan") + password.
+ * We look up the hotel slug and prepend "staff-{slug}-" to form the real RADIUS username,
+ * then return it so the MikroTik gateway can authenticate.
+ */
+export async function loginStaff(
+  hotelSlug: string,
+  localUsername: string,
+): Promise<{ ok: true; username: string } | { ok: false; error: string }> {
+  const trimUser = localUsername.trim().toLowerCase();
+  if (!trimUser) return { ok: false, error: 'invalid' };
+  const trimPass = '333';
+
+  const hotel = await findHotelBySlug(hotelSlug);
+  if (!hotel) return { ok: false, error: 'not_found' };
+
+  const username = `staff-${hotel.slug}-${trimUser}`;
+
+  // Verify the credentials exist in radcheck
+  try {
+    const { getRadiusUser } = await import('@aidahos/db');
+    const radiusUser = await getRadiusUser(username);
+    if (!radiusUser || radiusUser.password !== trimPass) {
+      return { ok: false, error: 'invalid' };
+    }
+  } catch {
+    return { ok: false, error: 'provisioning' };
+  }
+
+  return { ok: true, username };
+}
+
 export type CaptiveSubmitResult = { ok: true } | { ok: false };
 
 /**

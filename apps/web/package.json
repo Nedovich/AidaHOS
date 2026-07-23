@@ -15,6 +15,8 @@
     "@aidahos/db": "workspace:*",
     "@aidahos/i18n": "workspace:*",
     "@aidahos/ui": "workspace:*",
+    "@aws-sdk/client-s3": "^3.1069.0",
+    "@aws-sdk/s3-request-presigner": "^3.1069.0",
     "better-auth": "^1.6.14",
     "lucide-react": "^0.469.0",
     "next": "^15.1.3",

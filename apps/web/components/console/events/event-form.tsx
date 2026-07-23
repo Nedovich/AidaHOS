@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarDays, Check, ChevronDown, Clock, Eye, Globe2, Image as ImageIcon, Megaphone, Plus } from 'lucide-react';
 import { resolveLoc, type Loc, type PortalLang } from '@aidahos/db/portal-config';
@@ -12,6 +12,7 @@ import { LocInput } from './loc-input';
 
 type Cat = { id: string; name: Loc; color: string };
 type Loc2 = { id: string; name: Loc; hotelId: string };
+type HotelOpt = { id: string; name: string; slug: string };
 type EventStatus = 'draft' | 'scheduled' | 'live' | 'full' | 'completed' | 'cancelled';
 type EventOpt = { registrationRequired?: boolean; paid?: boolean; maxPerBooking?: number; recurring?: boolean };
 export type EventInit = {
@@ -36,7 +37,7 @@ export function EventForm({
 }: {
   consoleHotelId: string;
   lang: Lang;
-  hotels: { id: string; name: string }[];
+  hotels: HotelOpt[];
   categories: Cat[];
   locations: Loc2[];
   event?: EventInit;
@@ -67,6 +68,27 @@ export function EventForm({
   const [showCat, setShowCat] = useState(false);
   const [showLoc, setShowLoc] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const originalCoverUrl = useRef<string | null>(event?.coverUrl ?? null);
+  const pendingDeleteUrl = useRef<string | null>(null);
+  // Set to true right before redirect so unmount cleanup knows save succeeded.
+  const savedRef = useRef(false);
+
+  const deleteUrl = (url: string | null) => {
+    if (!url) return;
+    void fetch('/api/upload/delete', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    }).catch(() => {});
+  };
+
+  // On unmount: if save didn't complete, delete any newly uploaded file that wasn't persisted.
+  useEffect(() => {
+    return () => {
+      if (!savedRef.current && pendingDeleteUrl.current) deleteUrl(pendingDeleteUrl.current);
+    };
+  }, []);
 
   const locForHotel = useMemo(() => locations.filter((l) => l.hotelId === hotelSel), [locations, hotelSel]);
   const hasName = !!(name.en || name.tr || name.de || name.ru);
@@ -77,6 +99,29 @@ export function EventForm({
   const valid = hasName && !timeWithoutDate && !dateWithoutTime;
 
   const toIso = (t: string) => (date && t ? new Date(`${date}T${t}:00`).toISOString() : null);
+
+  const uploadFile = async (file: File) => {
+    setUploading(true);
+    const hotelSlug = hotels.find((h) => h.id === hotelSel)?.slug ?? 'events';
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('folder', `events/${hotelSlug}`);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const json = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !json.url) throw new Error(json.error ?? 'Upload failed');
+      // If there was already a pending (unsaved) upload, delete it now — user replaced it.
+      if (pendingDeleteUrl.current) deleteUrl(pendingDeleteUrl.current);
+      // Track the newly uploaded URL: will be deleted on unmount if not saved.
+      pendingDeleteUrl.current = json.url;
+      setCoverUrl(json.url);
+    } catch (e) {
+      alert(L(['Görsel yüklenemedi. Tekrar deneyin.', 'Could not upload image. Please try again.'], lang));
+      console.error(e);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const save = async (notify: boolean) => {
     if (saving) return;
@@ -109,10 +154,13 @@ export function EventForm({
     try {
       if (event) await updateEventAction(consoleHotelId, event.id, payload);
       else await createEventAction(consoleHotelId, payload);
-      // both redirect on success; if we reach here it didn't throw.
-      void notify;
     } catch (e) {
-      if ((e as { digest?: string })?.digest?.startsWith('NEXT_REDIRECT')) throw e;
+      // Server actions redirect by throwing NEXT_REDIRECT — that's success, not an error.
+      if ((e as { digest?: string })?.digest?.startsWith('NEXT_REDIRECT')) {
+        savedRef.current = true;
+        if (coverUrl !== originalCoverUrl.current) deleteUrl(originalCoverUrl.current);
+        throw e;
+      }
       setSaving(false);
       alert(L(['Kaydedilemedi. Tekrar deneyin.', 'Could not save. Please try again.'], lang));
     }
@@ -236,11 +284,61 @@ export function EventForm({
       <aside className="events-create-side">
         <section className="card">
           <div className="card__body">
-            <label className="flabel">{L(['Kapak görseli (URL)', 'Cover image (URL)'], lang)}</label>
-            <input className="finput" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} placeholder="https://…" />
-            <div className="cover-drop" style={{ marginTop: 10, cursor: 'default' }}>
-              {coverUrl ? <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--r-md)' }} /> : <><ImageIcon size={26} /><span className="cell-sub">{L(['Yükleme yakında · şimdilik URL', 'Upload soon · URL for now'], lang)}</span></>}
-            </div>
+            <label className="flabel">{L(['Kapak görseli', 'Cover image'], lang)}</label>
+            <label
+              className="cover-drop"
+              style={{ cursor: uploading ? 'wait' : 'pointer', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={async (e) => {
+                e.preventDefault();
+                const file = e.dataTransfer.files[0];
+                if (!file) return;
+                await uploadFile(file);
+              }}
+            >
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'inherit' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  await uploadFile(file);
+                  e.target.value = '';
+                }}
+              />
+              {coverUrl ? (
+                <>
+                  <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--r-md)', position: 'absolute', inset: 0 }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.35)', borderRadius: 'var(--r-md)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: 0, transition: 'opacity .2s' }}
+                    onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                    onMouseLeave={e => (e.currentTarget.style.opacity = '0')}
+                  >
+                    <ImageIcon size={22} color="#fff" />
+                    <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>{L(['Değiştir', 'Replace'], lang)}</span>
+                  </div>
+                </>
+              ) : uploading ? (
+                <><ImageIcon size={26} /><span className="cell-sub">{L(['Yükleniyor…', 'Uploading…'], lang)}</span></>
+              ) : (
+                <><ImageIcon size={26} /><span className="cell-sub">{L(['Tıkla veya sürükle · JPEG, PNG, WebP · maks 8 MB', 'Click or drag · JPEG, PNG, WebP · max 8 MB'], lang)}</span></>
+              )}
+            </label>
+            {coverUrl && (
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                style={{ marginTop: 8, width: '100%' }}
+                onClick={() => {
+                  // If the current photo was uploaded this session (not the original), delete it now.
+                  if (coverUrl !== originalCoverUrl.current) deleteUrl(coverUrl);
+                  pendingDeleteUrl.current = null;
+                  setCoverUrl('');
+                }}
+              >
+                {L(['Görseli kaldır', 'Remove image'], lang)}
+              </button>
+            )}
           </div>
         </section>
 

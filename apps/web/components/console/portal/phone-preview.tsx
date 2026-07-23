@@ -305,25 +305,64 @@ function Explore() {
   );
 }
 
+const EVENT_MOCKS = [
+  {
+    id: 'e1',
+    day: 'today',
+    time: '07:30',
+    title: 'Sunrise Yoga by the Sea',
+    loc: 'Beach Deck',
+    image: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=1200&q=75&auto=format&fit=crop',
+  },
+  {
+    id: 'e2',
+    day: 'today',
+    time: '11:00',
+    title: 'Guided Reef Snorkel',
+    loc: 'Dive Centre',
+    image: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=1200&q=75&auto=format&fit=crop',
+  },
+  {
+    id: 'e3',
+    day: 'today',
+    time: '21:00',
+    title: 'Sunset Jazz on the Terrace',
+    loc: 'Horizon Terrace',
+    image: 'https://images.unsplash.com/photo-1578474846511-04ba529f0b88?w=1200&q=75&auto=format&fit=crop',
+  },
+  {
+    id: 'e4',
+    day: 'upcoming',
+    time: '17:30',
+    title: 'Private Sunset Catamaran',
+    loc: 'Marina Pier',
+    image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&q=75&auto=format&fit=crop',
+  },
+  {
+    id: 'e5',
+    day: 'upcoming',
+    time: '19:00',
+    title: 'Aegean Wine Tasting',
+    loc: 'Cellar Marea',
+    image: 'https://images.unsplash.com/photo-1537640538966-79f369143f8f?w=1200&q=75&auto=format&fit=crop',
+  },
+] as const;
+
 function Events({ filter }: { filter: PortalState['eventsFilter'] }) {
   const chips: [string, PortalState['eventsFilter']][] = [['Today', 'today'], ['Upcoming', 'upcoming'], ['All', 'all']];
-  const evs = [
-    { time: '07:30', t: 'Sunrise Yoga by the Sea', loc: 'Beach Deck' },
-    { time: '11:00', t: 'Guided Reef Snorkel', loc: 'Dive Centre' },
-    { time: '21:00', t: 'Sunset Jazz on the Terrace', loc: 'Horizon Terrace' },
-  ];
+  const evs = EVENT_MOCKS.filter((e) => (filter === 'all' ? true : e.day === filter));
   return (
     <div className="gp-scroll">
       <StatusBar />
       <div className="gp-events">
         <div className="gp-events__h">Events</div>
         <div className="gp-evchips">{chips.map((c) => <div className={`gp-evchip ${c[1] === filter ? 'on' : ''}`} key={c[1]}>{c[0]}</div>)}</div>
-        {evs.map((e, i) => (
-          <div className="gp-evcard" key={i}>
-            <div className="gp-evcard__img gp-img gp-img--photo"><Ico name="image" size={0} /></div>
+        {evs.map((e) => (
+          <div className="gp-evcard" key={e.id}>
+            <div className="gp-evcard__img" style={{ backgroundImage: `url(${e.image})` }} />
             <div className="gp-evcard__time">{e.time}</div>
             <div className="gp-evcard__add"><Ico name="plus" size={18} /></div>
-            <div className="gp-evcard__in"><div className="gp-evcard__t">{e.t}</div><div className="gp-evcard__loc"><Ico name="pin" size={13} />{e.loc}</div></div>
+            <div className="gp-evcard__in"><div className="gp-evcard__t">{e.title}</div><div className="gp-evcard__loc"><Ico name="pin" size={13} />{e.loc}</div></div>
           </div>
         ))}
       </div>

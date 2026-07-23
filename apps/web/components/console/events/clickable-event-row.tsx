@@ -3,22 +3,22 @@
 import { useRouter } from 'next/navigation';
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 
-function isInteractiveTarget(target: EventTarget | null) {
-  return (
-    target instanceof HTMLElement && Boolean(target.closest('a, button, input, select, textarea'))
-  );
-}
-
-export function ClickableEventRow({ href, children }: { href: string; children: ReactNode }) {
+export function ClickableEventRow({
+  href,
+  children,
+  actions,
+}: {
+  href: string;
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
   const router = useRouter();
 
   function openRow(event: MouseEvent<HTMLTableRowElement>) {
-    if (isInteractiveTarget(event.target)) return;
     router.push(href);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTableRowElement>) {
-    if (isInteractiveTarget(event.target)) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       router.push(href);
@@ -34,6 +34,11 @@ export function ClickableEventRow({ href, children }: { href: string; children: 
       tabIndex={0}
     >
       {children}
+      {actions != null && (
+        <td onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          {actions}
+        </td>
+      )}
     </tr>
   );
 }
