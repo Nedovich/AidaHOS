@@ -391,12 +391,12 @@ export async function getStaffAccountStats(username: string): Promise<StaffAccou
   const tz = 'Europe/Istanbul';
 
   const [todayRow, avgRow, activeRow, dailyRows] = await Promise.all([
-    // Today's total bytes (local timezone)
+    // Today's total bytes (sessions starting today in local timezone)
     sql<{ bytes: string }[]>`
       select coalesce(sum(coalesce(acctinputoctets,0) + coalesce(acctoutputoctets,0)), 0)::bigint as bytes
       from radacct
       where username = ${username}
-        and (acctstarttime at time zone ${tz})::date = current_date at time zone ${tz}`,
+        and (acctstarttime at time zone ${tz})::date = (now() at time zone ${tz})::date`,
 
     // Avg session length in seconds (only finished sessions)
     sql<{ avg_sec: string | null }[]>`
@@ -416,11 +416,11 @@ export async function getStaffAccountStats(username: string): Promise<StaffAccou
     // Daily bytes for last 7 days grouped by local date (day_offset 0 = today)
     sql<{ day_offset: string; bytes: string }[]>`
       select
-        ((current_date at time zone ${tz}) - (acctstarttime at time zone ${tz})::date)::int as day_offset,
+        ((now() at time zone ${tz})::date - (acctstarttime at time zone ${tz})::date)::int as day_offset,
         coalesce(sum(coalesce(acctinputoctets,0) + coalesce(acctoutputoctets,0)), 0)::bigint as bytes
       from radacct
       where username = ${username}
-        and (acctstarttime at time zone ${tz})::date >= (current_date at time zone ${tz}) - interval '6 days'
+        and (acctstarttime at time zone ${tz})::date >= (now() at time zone ${tz})::date - interval '6 days'
       group by day_offset
       order by day_offset`,
   ]);
