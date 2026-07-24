@@ -85,6 +85,84 @@ export function Donut({ segments, size = 168, stroke = 18, center, centerSub }: 
   );
 }
 
+/** Responsive area chart with compact axes for dashboard detail cards. */
+export function AreaChart({
+  data,
+  labels,
+  color = 'var(--accent)',
+  height = 220,
+  max = Math.ceil(Math.max(...data, 1)),
+}: {
+  data: number[];
+  labels: string[];
+  color?: string;
+  height?: number;
+  max?: number;
+}) {
+  const w = 760;
+  const h = height;
+  const left = 38;
+  const right = 12;
+  const top = 12;
+  const bottom = 28;
+  const plotH = h - top - bottom;
+  const plotW = w - left - right;
+  const points: [number, number][] = data.map((value, index) => [
+    left + (index / Math.max(1, data.length - 1)) * plotW,
+    top + plotH - (value / Math.max(1, max)) * plotH,
+  ]);
+  const line = smooth(points);
+  const area = `${line} L ${points.at(-1)?.[0] ?? left},${top + plotH} L ${left},${top + plotH} Z`;
+  const gradientId = `area-${data.join('-').replace(/[^0-9]/g, '').slice(0, 20)}`;
+
+  return (
+    <svg
+      className="area-chart"
+      viewBox={`0 0 ${w} ${h}`}
+      width="100%"
+      height={height}
+      preserveAspectRatio="none"
+      aria-label="Area chart"
+      role="img"
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={color} stopOpacity="0.18" />
+          <stop offset="1" stopColor={color} stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      {Array.from({ length: max + 1 }, (_, value) => {
+        const y = top + plotH - (value / Math.max(1, max)) * plotH;
+        return (
+          <g key={value}>
+            <line x1={left} x2={w - right} y1={y} y2={y} stroke="var(--border-faint)" strokeWidth="1" />
+            <text x={left - 12} y={y + 4} textAnchor="end" fill="var(--text-3)" fontSize="10">{value}</text>
+          </g>
+        );
+      })}
+      <path d={area} fill={`url(#${gradientId})`} />
+      <path d={line} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      {points.map(([x, y], index) => (
+        index === points.length - 1
+          ? <circle key={index} cx={x} cy={y} r="3.5" fill="var(--surface)" stroke={color} strokeWidth="2.2" />
+          : null
+      ))}
+      {labels.map((label, index) => (
+        <text
+          key={`${label}-${index}`}
+          x={left + (index / Math.max(1, labels.length - 1)) * plotW}
+          y={h - 7}
+          textAnchor="middle"
+          fill="var(--text-3)"
+          fontSize="10"
+        >
+          {label}
+        </text>
+      ))}
+    </svg>
+  );
+}
+
 /** KPI card with delta + note + optional sparkline. */
 export function Kpi({ icon, label, value, delta, unit = '%', note, spark, live }: { icon: React.ReactNode; label: React.ReactNode; value: React.ReactNode; delta?: number; unit?: string; note?: React.ReactNode; spark?: number[]; live?: boolean }) {
   const up = (delta ?? 0) >= 0;

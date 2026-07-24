@@ -123,7 +123,7 @@ export function StaffUsersClient({
                       {initials(user.displayName)}
                     </div>
                     <div>
-                      <Link className="set-mem__n staff-account-name-link" href={`${base}/accounts/${encodeURIComponent(user.radiusUsername)}/edit`}>
+                      <Link className="set-mem__n staff-account-name-link" href={`${base}/accounts/${encodeURIComponent(user.radiusUsername)}`}>
                         {user.displayName}
                       </Link>
                       <div className="cell-sub mono" style={{ fontSize: 11 }}>{user.radiusUsername}</div>

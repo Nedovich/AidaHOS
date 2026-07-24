@@ -52,8 +52,8 @@ export function StaffProfileForm({ hotelId, lang, profile }: StaffProfileFormPro
   const [sharedUsers, setSharedUsers] = useState(String(profile?.sharedUsers ?? 1));
   const [rxRate, setRxRate] = useState(parsed.rx);
   const [txRate, setTxRate] = useState(parsed.tx);
-  const [sessionTimeout, setSessionTimeout] = useState('');
-  const [idleTimeout, setIdleTimeout] = useState('');
+  const [sessionTimeout, setSessionTimeout] = useState(profile?.sessionTimeout ?? '');
+  const [idleTimeout, setIdleTimeout] = useState(profile?.idleTimeout ?? '');
   const [macCookie, setMacCookie] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +83,8 @@ export function StaffProfileForm({ hotelId, lang, profile }: StaffProfileFormPro
           name: name.trim(),
           rateLimit,
           sharedUsers: Number(sharedUsers) || 1,
+          sessionTimeout: sessionTimeout.trim() || undefined,
+          idleTimeout: idleTimeout.trim() || undefined,
         };
         if (editing && profile) {
           await updateStaffProfileAction(hotelId, profile.id, input);
@@ -100,7 +102,7 @@ export function StaffProfileForm({ hotelId, lang, profile }: StaffProfileFormPro
     if (!profile) return;
     startTransition(async () => {
       try {
-        await deleteStaffProfileAction(hotelId, profile.id);
+        await deleteStaffProfileAction(hotelId, profile.id, profile.name);
       } catch (e) {
         const msg = (e as { digest?: string })?.digest?.startsWith('NEXT_REDIRECT') ? null : String(e);
         if (msg) setError(msg);

@@ -27,6 +27,7 @@ export default async function MikroTikPage({
       profiles = await client.listHotspotProfiles();
     } catch (e) {
       connectError = e instanceof Error ? e.message : String(e);
+      console.error('[MikroTik] connection failed:', connectError, 'host:', hotel.mikrotikIp, 'port:', hotel.mikrotikApiPort, 'user:', hotel.mikrotikApiUser);
     }
   }
 

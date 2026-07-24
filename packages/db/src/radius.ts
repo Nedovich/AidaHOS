@@ -313,17 +313,54 @@ export async function upsertStaffUser(input: {
       values (${username}, 'Mikrotik-Group', '=', ${input.mikrotikGroup})`;
   }
 
+  // radusergroup: assigns user to a FreeRADIUS group so radgroupreply attributes
+  // (e.g. Mikrotik-Rate-Limit) are applied. One group per user; update on profile change.
+  const ugEx = await sql<{ id: number }[]>`
+    select id from radusergroup where username = ${username} limit 1`;
+  if (ugEx.length) {
+    await sql`update radusergroup set groupname = ${input.mikrotikGroup}
+      where username = ${username}`;
+  } else {
+    await sql`insert into radusergroup (username, groupname, priority)
+      values (${username}, ${input.mikrotikGroup}, 1)`;
+  }
+
   // Clean up any legacy display-name rows written by older code versions
   await sql`delete from radreply where username = ${username} and attribute = 'display-name'`;
 
   return { created };
 }
 
-/** Delete a staff user (radcheck + radreply). */
+/**
+ * Sync a hotspot profile's rate-limit into radgroupreply so FreeRADIUS sends
+ * Mikrotik-Rate-Limit to the router when a user in this group authenticates.
+ * Called whenever a MikroTik hotspot profile is created or updated from the panel.
+ */
+export async function upsertRadiusGroup(groupname: string, rateLimit: string): Promise<void> {
+  const sql = radiusSql();
+  const ex = await sql<{ id: number }[]>`
+    select id from radgroupreply where groupname = ${groupname} and attribute = 'Mikrotik-Rate-Limit' limit 1`;
+  if (ex.length) {
+    await sql`update radgroupreply set value = ${rateLimit}, op = '='
+      where groupname = ${groupname} and attribute = 'Mikrotik-Rate-Limit'`;
+  } else {
+    await sql`insert into radgroupreply (groupname, attribute, op, value)
+      values (${groupname}, 'Mikrotik-Rate-Limit', '=', ${rateLimit})`;
+  }
+}
+
+/** Remove a hotspot profile group from radgroupreply (when the profile is deleted). */
+export async function deleteRadiusGroup(groupname: string): Promise<void> {
+  const sql = radiusSql();
+  await sql`delete from radgroupreply where groupname = ${groupname}`;
+}
+
+/** Delete a staff user (radcheck + radreply + radusergroup). */
 export async function deleteStaffUser(username: string): Promise<void> {
   const sql = radiusSql();
   await sql`delete from radcheck where username = ${username}`;
   await sql`delete from radreply where username = ${username}`;
+  await sql`delete from radusergroup where username = ${username}`;
 }
 
 export interface RadAcctSession {
@@ -338,6 +375,69 @@ export interface RadAcctSession {
   framedIp: string | null;
   nasIp: string | null;
   terminateCause: string | null;
+}
+
+export interface StaffAccountStats {
+  dataTodayBytes: number;
+  avgSessionSeconds: number;
+  activeDevices: number;
+  dailyBytesLast7: number[]; // index 0 = 6 days ago, index 6 = today
+}
+
+/** Aggregate stats for a staff account detail page. */
+export async function getStaffAccountStats(username: string): Promise<StaffAccountStats> {
+  const sql = radiusSql();
+
+  const tz = 'Europe/Istanbul';
+
+  const [todayRow, avgRow, activeRow, dailyRows] = await Promise.all([
+    // Today's total bytes (local timezone)
+    sql<{ bytes: string }[]>`
+      select coalesce(sum(coalesce(acctinputoctets,0) + coalesce(acctoutputoctets,0)), 0)::bigint as bytes
+      from radacct
+      where username = ${username}
+        and (acctstarttime at time zone ${tz})::date = current_date at time zone ${tz}`,
+
+    // Avg session length in seconds (only finished sessions)
+    sql<{ avg_sec: string | null }[]>`
+      select avg(acctsessiontime)::bigint as avg_sec
+      from radacct
+      where username = ${username}
+        and acctsessiontime is not null
+        and acctsessiontime > 0`,
+
+    // Active (open) sessions = connected devices right now
+    sql<{ cnt: string }[]>`
+      select count(*)::int as cnt
+      from radacct
+      where username = ${username}
+        and acctstoptime is null`,
+
+    // Daily bytes for last 7 days grouped by local date (day_offset 0 = today)
+    sql<{ day_offset: string; bytes: string }[]>`
+      select
+        ((current_date at time zone ${tz}) - (acctstarttime at time zone ${tz})::date)::int as day_offset,
+        coalesce(sum(coalesce(acctinputoctets,0) + coalesce(acctoutputoctets,0)), 0)::bigint as bytes
+      from radacct
+      where username = ${username}
+        and (acctstarttime at time zone ${tz})::date >= (current_date at time zone ${tz}) - interval '6 days'
+      group by day_offset
+      order by day_offset`,
+  ]);
+
+  // Build 7-element array [6 days ago … today]
+  const byDay = new Array<number>(7).fill(0);
+  for (const row of dailyRows) {
+    const offset = Number(row.day_offset);
+    if (offset >= 0 && offset <= 6) byDay[6 - offset] = Number(row.bytes);
+  }
+
+  return {
+    dataTodayBytes: Number(todayRow[0]?.bytes ?? 0),
+    avgSessionSeconds: Number(avgRow[0]?.avg_sec ?? 0),
+    activeDevices: Number(activeRow[0]?.cnt ?? 0),
+    dailyBytesLast7: byDay,
+  };
 }
 
 /** Accounting sessions for a user (latest first). */

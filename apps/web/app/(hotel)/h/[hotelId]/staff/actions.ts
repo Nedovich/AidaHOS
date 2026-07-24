@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import {
   deleteStaffAccount,
   deleteStaffUser,
+  deleteRadiusGroup,
   getHotelById,
   getRadiusUser,
   getStaffAccount,
@@ -13,6 +14,7 @@ import {
   staffUsername,
   upsertStaffAccount,
   upsertStaffUser,
+  upsertRadiusGroup,
   type StaffAccount,
 } from '@aidahos/db';
 import { getSession } from '@/lib/auth';
@@ -38,7 +40,7 @@ export async function listStaffUsersAction(hotelId: string): Promise<StaffAccoun
 
 export async function createStaffUserAction(
   hotelId: string,
-  input: { localUsername: string; displayName: string; password: string; mikrotikGroup: string },
+  input: { localUsername: string; displayName: string; password: string; mikrotikGroup: string; jobTitle?: string | null; accessUntil?: string | null },
 ): Promise<void> {
   const hotel = await requireHotel(hotelId);
   const radUsername = staffUsername(hotel.slug, input.localUsername);
@@ -53,6 +55,8 @@ export async function createStaffUserAction(
     localUsername: input.localUsername,
     displayName: input.displayName,
     mikrotikGroup: input.mikrotikGroup,
+    jobTitle: input.jobTitle ?? null,
+    accessUntil: input.accessUntil ?? null,
   });
 
   revalidatePath(`/h/${hotelId}/staff`);
@@ -62,7 +66,7 @@ export async function createStaffUserAction(
 export async function updateStaffUserAction(
   hotelId: string,
   radiusUsername: string,
-  input: { displayName: string; password?: string; mikrotikGroup: string },
+  input: { displayName: string; password?: string; mikrotikGroup: string; jobTitle?: string | null; accessUntil?: string | null },
 ): Promise<void> {
   const hotel = await requireHotel(hotelId);
   const prefix = `staff-${hotel.slug}-`;
@@ -82,6 +86,8 @@ export async function updateStaffUserAction(
     localUsername,
     displayName: input.displayName,
     mikrotikGroup: input.mikrotikGroup,
+    jobTitle: input.jobTitle ?? null,
+    accessUntil: input.accessUntil ?? null,
   });
 
   revalidatePath(`/h/${hotelId}/staff`);
@@ -113,10 +119,11 @@ export async function listStaffProfilesAction(hotelId: string): Promise<HotspotP
 
 export async function createStaffProfileAction(
   hotelId: string,
-  input: { name: string; rateLimit: string; sharedUsers: number },
+  input: { name: string; rateLimit: string; sharedUsers: number; sessionTimeout?: string; idleTimeout?: string },
 ): Promise<void> {
   const client = await getClient(hotelId);
   await client.createHotspotProfile(input);
+  if (input.rateLimit) await upsertRadiusGroup(input.name, input.rateLimit);
   revalidatePath(`/h/${hotelId}/staff/profiles`);
   redirect(`/h/${hotelId}/staff/profiles`);
 }
@@ -124,17 +131,19 @@ export async function createStaffProfileAction(
 export async function updateStaffProfileAction(
   hotelId: string,
   mtId: string,
-  input: { name: string; rateLimit: string; sharedUsers: number },
+  input: { name: string; rateLimit: string; sharedUsers: number; sessionTimeout?: string; idleTimeout?: string },
 ): Promise<void> {
   const client = await getClient(hotelId);
   await client.updateHotspotProfile(mtId, input);
+  if (input.rateLimit) await upsertRadiusGroup(input.name, input.rateLimit);
   revalidatePath(`/h/${hotelId}/staff/profiles`);
   redirect(`/h/${hotelId}/staff/profiles`);
 }
 
-export async function deleteStaffProfileAction(hotelId: string, mtId: string): Promise<void> {
+export async function deleteStaffProfileAction(hotelId: string, mtId: string, profileName: string): Promise<void> {
   const client = await getClient(hotelId);
   await client.deleteHotspotProfile(mtId);
+  await deleteRadiusGroup(profileName);
   revalidatePath(`/h/${hotelId}/staff/profiles`);
   redirect(`/h/${hotelId}/staff/profiles`);
 }

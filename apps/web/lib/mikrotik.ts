@@ -12,6 +12,8 @@ export interface HotspotProfile {
   name: string;
   rateLimit: string;  // e.g. "10M/10M"
   sharedUsers: number;
+  sessionTimeout: string;
+  idleTimeout: string;
   isDefault: boolean;
 }
 
@@ -44,6 +46,8 @@ export function mikrotikClient(cfg: MikroTikConfig) {
     name: string;
     'rate-limit'?: string;
     'shared-users'?: string;
+    'session-timeout'?: string;
+    'idle-timeout'?: string;
     default?: string;
   };
 
@@ -53,6 +57,8 @@ export function mikrotikClient(cfg: MikroTikConfig) {
       name: r.name,
       rateLimit: r['rate-limit'] ?? '',
       sharedUsers: Number(r['shared-users'] ?? 1),
+      sessionTimeout: r['session-timeout'] ?? '',
+      idleTimeout: r['idle-timeout'] ?? '',
       isDefault: r.name === 'default' || r.default === 'true' || r.default === 'yes',
     };
   }
@@ -69,24 +75,31 @@ export function mikrotikClient(cfg: MikroTikConfig) {
       name: string;
       rateLimit: string;
       sharedUsers?: number;
+      sessionTimeout?: string;
+      idleTimeout?: string;
     }): Promise<HotspotProfile> {
-      const row = await request<RawProfile>('PUT', '/ip/hotspot/user/profile', {
+      const body: Record<string, string> = {
         name: input.name,
         'rate-limit': input.rateLimit,
         'shared-users': String(input.sharedUsers ?? 1),
-      });
+      };
+      if (input.sessionTimeout) body['session-timeout'] = input.sessionTimeout;
+      if (input.idleTimeout) body['idle-timeout'] = input.idleTimeout;
+      const row = await request<RawProfile>('PUT', '/ip/hotspot/user/profile', body);
       return parseProfile(row);
     },
 
     /** Update an existing profile by its MikroTik .id. */
     async updateHotspotProfile(
       mtId: string,
-      input: { name?: string; rateLimit?: string; sharedUsers?: number },
+      input: { name?: string; rateLimit?: string; sharedUsers?: number; sessionTimeout?: string; idleTimeout?: string },
     ): Promise<HotspotProfile> {
       const body: Record<string, string> = {};
       if (input.name !== undefined) body.name = input.name;
       if (input.rateLimit !== undefined) body['rate-limit'] = input.rateLimit;
       if (input.sharedUsers !== undefined) body['shared-users'] = String(input.sharedUsers);
+      if (input.sessionTimeout !== undefined) body['session-timeout'] = input.sessionTimeout;
+      if (input.idleTimeout !== undefined) body['idle-timeout'] = input.idleTimeout;
       const row = await request<RawProfile>('PATCH', `/ip/hotspot/user/profile/${mtId}`, body);
       return parseProfile(row);
     },

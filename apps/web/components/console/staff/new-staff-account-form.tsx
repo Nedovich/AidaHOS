@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
-import { CalendarDays, Check, ChevronRight, KeyRound, Router, Users } from 'lucide-react';
+import { CalendarDays, Check, ChevronRight, KeyRound, Router, Users, Briefcase } from 'lucide-react';
 import { Subhero } from '@/components/console/survey-helpers';
 import { L, type Lang } from '@/lib/i18n';
 import type { HotspotProfile } from '@/lib/mikrotik';
@@ -30,6 +30,8 @@ export function StaffAccountForm({ hotelId, lang, profiles, user }: Props) {
   const [localUsername, setLocalUsername] = useState(user?.localUsername ?? '');
   const [password] = useState(DEFAULT_STAFF_PASSWORD);
   const [mikrotikGroup, setMikrotikGroup] = useState(user?.mikrotikGroup ?? profiles[0]?.name ?? '');
+  const [jobTitle, setJobTitle] = useState(user?.jobTitle ?? '');
+  const [accessUntil, setAccessUntil] = useState(user?.accessUntil ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -49,6 +51,8 @@ export function StaffAccountForm({ hotelId, lang, profiles, user }: Props) {
             displayName: displayName.trim(),
             password: password.trim() || undefined,
             mikrotikGroup,
+            jobTitle: jobTitle.trim() || null,
+            accessUntil: accessUntil || null,
           });
         } else {
           await createStaffUserAction(hotelId, {
@@ -56,6 +60,8 @@ export function StaffAccountForm({ hotelId, lang, profiles, user }: Props) {
             displayName: displayName.trim(),
             password: password.trim(),
             mikrotikGroup,
+            jobTitle: jobTitle.trim() || null,
+            accessUntil: accessUntil || null,
           });
         }
       } catch (e) {
@@ -116,6 +122,10 @@ export function StaffAccountForm({ hotelId, lang, profiles, user }: Props) {
                 <input id="staff-display-name" className="finput" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder={L(['ör. Mert Aydın', 'e.g. Mert Aydin'], lang)} />
               </div>
               <div>
+                <label className="flabel" htmlFor="staff-job-title">{L(['Unvan', 'Title'], lang)}</label>
+                <input id="staff-job-title" className="finput" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder={L(['ör. Resepsiyon Şefi', 'e.g. Front Office Chief'], lang)} />
+              </div>
+              <div>
                 <label className="flabel" htmlFor="staff-local-username">{L(['Kullanıcı adı', 'Username'], lang)}</label>
                 <input
                   id="staff-local-username"
@@ -158,6 +168,21 @@ export function StaffAccountForm({ hotelId, lang, profiles, user }: Props) {
               </div>
             )}
           </section>
+
+          <section className="form-sec">
+            <h2 className="form-sec__t">{L(['Erişim Süresi', 'Access Period'], lang)}</h2>
+            <p className="form-sec__d">{L(['Boş bırakılırsa erişim süresiz devam eder.', 'If left empty, access continues indefinitely.'], lang)}</p>
+            <div style={{ maxWidth: 280 }}>
+              <label className="flabel" htmlFor="staff-access-until">{L(['Erişim Bitiş Tarihi', 'Access Until'], lang)}</label>
+              <input
+                id="staff-access-until"
+                className="finput"
+                type="date"
+                value={accessUntil}
+                onChange={(e) => setAccessUntil(e.target.value)}
+              />
+            </div>
+          </section>
         </div>
 
         <div className="staff-account-side">
@@ -178,6 +203,12 @@ export function StaffAccountForm({ hotelId, lang, profiles, user }: Props) {
                 <span className="stat-row__k"><Users size={15} />{L(['Kullanıcı adı', 'Username'], lang)}</span>
                 <span className="stat-row__v mono">{localUsername || '—'}</span>
               </div>
+              {jobTitle && (
+                <div className="stat-row">
+                  <span className="stat-row__k"><Briefcase size={15} />{L(['Unvan', 'Title'], lang)}</span>
+                  <span className="stat-row__v">{jobTitle}</span>
+                </div>
+              )}
               <div className="stat-row">
                 <span className="stat-row__k"><Router size={15} />{L(['Profil', 'Profile'], lang)}</span>
                 <span className="stat-row__v">{mikrotikGroup || '—'}</span>
@@ -186,6 +217,12 @@ export function StaffAccountForm({ hotelId, lang, profiles, user }: Props) {
                 <div className="stat-row">
                   <span className="stat-row__k"><KeyRound size={15} />{L(['Hız Limiti', 'Rate Limit'], lang)}</span>
                   <span className="stat-row__v mono">{selectedProfile.rateLimit}</span>
+                </div>
+              )}
+              {accessUntil && (
+                <div className="stat-row">
+                  <span className="stat-row__k"><CalendarDays size={15} />{L(['Bitiş', 'Until'], lang)}</span>
+                  <span className="stat-row__v mono">{accessUntil}</span>
                 </div>
               )}
               <button type="button" className="btn btn--primary staff-preview-primary" onClick={handleSave} disabled={isPending}>

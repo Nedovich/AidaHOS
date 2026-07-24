@@ -1183,6 +1183,8 @@ export interface StaffAccount {
   localUsername: string;
   displayName: string;
   mikrotikGroup: string;
+  jobTitle: string | null;
+  accessUntil: string | null;
   online: boolean;
   lastSeen: Date | null;
   createdAt: Date;
@@ -1208,6 +1210,8 @@ export async function listStaffAccounts(
       localUsername: r.localUsername,
       displayName: r.displayName,
       mikrotikGroup: r.mikrotikGroup,
+      jobTitle: r.jobTitle ?? null,
+      accessUntil: r.accessUntil ?? null,
       online: stat?.online ?? false,
       lastSeen: stat?.lastSeen ?? null,
       createdAt: r.createdAt,
@@ -1230,6 +1234,8 @@ export async function getStaffAccount(radiusUsername: string): Promise<StaffAcco
     localUsername: r.localUsername,
     displayName: r.displayName,
     mikrotikGroup: r.mikrotikGroup,
+    jobTitle: r.jobTitle ?? null,
+    accessUntil: r.accessUntil ?? null,
     online: false,
     lastSeen: null,
     createdAt: r.createdAt,
@@ -1242,6 +1248,8 @@ export async function upsertStaffAccount(input: {
   localUsername: string;
   displayName: string;
   mikrotikGroup: string;
+  jobTitle?: string | null;
+  accessUntil?: string | null;
 }): Promise<StaffAccount> {
   const now = new Date();
   const rows = await db
@@ -1252,6 +1260,8 @@ export async function upsertStaffAccount(input: {
       localUsername: input.localUsername,
       displayName: input.displayName,
       mikrotikGroup: input.mikrotikGroup,
+      jobTitle: input.jobTitle ?? null,
+      accessUntil: input.accessUntil ?? null,
       createdAt: now,
       updatedAt: now,
     })
@@ -1261,6 +1271,8 @@ export async function upsertStaffAccount(input: {
         displayName: input.displayName,
         mikrotikGroup: input.mikrotikGroup,
         localUsername: input.localUsername,
+        jobTitle: input.jobTitle ?? null,
+        accessUntil: input.accessUntil ?? null,
         updatedAt: now,
       },
     })
@@ -1273,6 +1285,8 @@ export async function upsertStaffAccount(input: {
     localUsername: r.localUsername,
     displayName: r.displayName,
     mikrotikGroup: r.mikrotikGroup,
+    jobTitle: r.jobTitle ?? null,
+    accessUntil: r.accessUntil ?? null,
     online: false,
     lastSeen: null,
     createdAt: r.createdAt,

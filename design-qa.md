@@ -39,6 +39,36 @@ final result: passed
 
 ---
 
+# Staff Account Detail Design QA
+
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_aFdTrj/Screenshot 2026-07-24 at 08.26.22.png`
+- Secondary source: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_RK0Oix/Screenshot 2026-07-24 at 08.26.33.png`
+- Source implementation: `design/aida/project/assets/screens/staff.js`
+- Implementation screenshot: `/private/tmp/aida-staff-account-qa-final.png`
+- Side-by-side comparison: `/private/tmp/aida-staff-account-comparison-final.png`
+- Implementation route: `/h/[hotelId]/staff/accounts/[accountId]`
+- Viewport: normalized desktop `1365x861`, light theme, English UI
+
+## Findings
+
+No actionable P0, P1, or P2 mismatches remain.
+
+- Account identity, status and profile badges, reset/edit actions and four KPI cards match the handoff hierarchy.
+- Daily usage and device-mix charts match the source data, proportions, labels and semantic colors.
+- The 14-row connection history uses realistic deterministic mock telemetry while preserving the selected database-backed Staff account.
+- All, Active and Ended filters and connection search were exercised successfully.
+- Staff account names now open their detail route, while the row edit action continues to open the existing edit page.
+- Browser console inspection returned no errors or warnings.
+
+## Comparison History
+
+- Initial comparison used the Turkish locale and exposed a device-mix count mismatch.
+- Final comparison uses the source English state and matches the source mix of 1 tablet, 9 laptops and 4 phones.
+
+final result: passed
+
+---
+
 # Sidebar Property Switcher Design QA
 
 - Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_6NcNZC/Screenshot 2026-07-18 at 19.47.11.png`

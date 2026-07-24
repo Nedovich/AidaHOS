@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, uuid, date } from 'drizzle-orm/pg-core';
 import { hotels } from './tenancy';
 
 /**
@@ -18,6 +18,8 @@ export const staffAccounts = pgTable('staff_accounts', {
   localUsername: text('local_username').notNull(),
   displayName: text('display_name').notNull(),
   mikrotikGroup: text('mikrotik_group').notNull().default(''),
+  jobTitle: text('job_title'),
+  accessUntil: date('access_until'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
