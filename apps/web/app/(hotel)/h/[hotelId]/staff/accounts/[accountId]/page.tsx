@@ -73,8 +73,8 @@ export default async function StaffAccountDetailPage({
         )
       : '—';
 
-  // Daily usage chart: bytes → GB
-  const dailyGb = stats.dailyBytesLast7.map((b) => Math.round((b / 1e9) * 10) / 10);
+  // Daily usage chart: bytes → MB (staff typically uses MBs not GBs)
+  const dailyGb = stats.dailyBytesLast7.map((b) => Math.round(b / 1e6));
   const chartMax = Math.max(1, ...dailyGb);
 
   return (

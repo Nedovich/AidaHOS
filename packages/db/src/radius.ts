@@ -86,7 +86,7 @@ export interface RadiusUserSummary {
 }
 
 /** Access-granted users (radcheck) joined with their session activity (radacct). */
-export async function listRadiusUsers(): Promise<RadiusUserSummary[]> {
+export async function listRadiusUsers(hotelSlug?: string, staffUsernames?: string[]): Promise<RadiusUserSummary[]> {
   const sql = radiusSql();
   const rows = await sql<
     { username: string; sessions: number; last_seen: Date | null; bytes: string; online: boolean | null }[]
@@ -99,6 +99,12 @@ export async function listRadiusUsers(): Promise<RadiusUserSummary[]> {
     from radcheck rc
     left join radacct ra on ra.username = rc.username
     where rc.attribute = 'Cleartext-Password'
+      ${hotelSlug
+        ? sql`and (
+            rc.username like ${hotelSlug + '-%'}
+            ${staffUsernames && staffUsernames.length > 0 ? sql`or rc.username in ${sql(staffUsernames)}` : sql``}
+          )`
+        : sql``}
     group by rc.username
     order by max(ra.acctstarttime) desc nulls last`;
   return rows.map((r) => ({
@@ -114,6 +120,242 @@ export interface NasSessionStats {
   active: number;
   total: number;
   users: number;
+}
+
+export interface ActiveRadiusSession {
+  id: string;
+  username: string;
+  framedIp: string | null;
+  nasIp: string | null;
+  nasName: string;
+  start: Date | null;
+  durationSeconds: number;
+  bytes: number;
+}
+
+export interface RadiusActiveSessionOverview {
+  dailyLogins: number;
+  activeDevices: number;
+  avgSessionSeconds: number;
+  dailyLoginsLast7: number[];
+  sessions: ActiveRadiusSession[];
+}
+
+/**
+ * Active FreeRADIUS sessions for one hotel, including guest and staff accounts.
+ * The NAS IP is included in the scope for installations whose usernames predate
+ * the current hotel-prefixed naming convention.
+ */
+export async function getRadiusActiveSessionOverview(
+  hotelSlug: string,
+  nasname?: string | null,
+): Promise<RadiusActiveSessionOverview> {
+  const sql = radiusSql();
+  const guestPrefix = `${hotelSlug}-%`;
+  const staffPrefix = `staff-${hotelSlug}-%`;
+  const tz = 'Europe/Istanbul';
+  const nasScope = nasname
+    ? sql`or host(ra.nasipaddress) = ${nasname}`
+    : sql``;
+
+  const [sessionRows, dailyRows] = await Promise.all([
+    sql<{
+      radacctid: string;
+      username: string;
+      framedip: string | null;
+      nasip: string | null;
+      nas_name: string | null;
+      acctstarttime: Date | null;
+      duration_seconds: string;
+      bytes: string;
+    }[]>`
+      select
+        ra.radacctid,
+        ra.username,
+        ra.framedipaddress::text as framedip,
+        ra.nasipaddress::text as nasip,
+        coalesce(n.shortname, ra.nasipaddress::text, '—') as nas_name,
+        ra.acctstarttime,
+        greatest(
+          0,
+          coalesce(
+            ra.acctsessiontime,
+            extract(epoch from (now() - ra.acctstarttime))::bigint,
+            0
+          )
+        )::bigint as duration_seconds,
+        (
+          coalesce(ra.acctinputoctets, 0) +
+          coalesce(ra.acctoutputoctets, 0)
+        )::bigint as bytes
+      from radacct ra
+      left join nas n on n.nasname = ra.nasipaddress::text
+      where ra.acctstoptime is null
+        and (
+          ra.username like ${guestPrefix}
+          or ra.username like ${staffPrefix}
+          ${nasScope}
+        )
+      order by ra.acctstarttime asc nulls last`,
+    sql<{ day_offset: string; logins: string }[]>`
+      select
+        ((now() at time zone ${tz})::date -
+          (ra.acctstarttime at time zone ${tz})::date)::int as day_offset,
+        count(*)::int as logins
+      from radacct ra
+      where ra.acctstarttime is not null
+        and (ra.acctstarttime at time zone ${tz})::date >=
+          (now() at time zone ${tz})::date - interval '6 days'
+        and (
+          ra.username like ${guestPrefix}
+          or ra.username like ${staffPrefix}
+          ${nasScope}
+        )
+      group by day_offset
+      order by day_offset`,
+  ]);
+
+  const dailyLoginsLast7 = new Array<number>(7).fill(0);
+  for (const row of dailyRows) {
+    const offset = Number(row.day_offset);
+    if (offset >= 0 && offset <= 6) {
+      dailyLoginsLast7[6 - offset] = Number(row.logins);
+    }
+  }
+
+  const sessions = sessionRows.map((row) => ({
+    id: String(row.radacctid),
+    username: row.username,
+    framedIp: row.framedip,
+    nasIp: row.nasip,
+    nasName: row.nas_name ?? row.nasip ?? '—',
+    start: row.acctstarttime,
+    durationSeconds: Number(row.duration_seconds),
+    bytes: Number(row.bytes),
+  }));
+  const durationTotal = sessions.reduce((sum, session) => sum + session.durationSeconds, 0);
+
+  return {
+    dailyLogins: dailyLoginsLast7[6] ?? 0,
+    activeDevices: sessions.length,
+    avgSessionSeconds: sessions.length ? Math.round(durationTotal / sessions.length) : 0,
+    dailyLoginsLast7,
+    sessions,
+  };
+}
+
+export interface RadiusAuthLog {
+  id: string;
+  username: string;
+  reply: string;
+  nasName: string | null;
+  authDate: Date | null;
+}
+
+export interface RadiusAuthLogOverview {
+  logs: RadiusAuthLog[];
+  dailyTotal: number;
+  dailyAccept: number;
+  dailyReject: number;
+  activeDevices: number;
+  avgSessionSeconds: number;
+}
+
+/** Recent authentication decisions for the Active Sessions activity feed. */
+export async function listRecentRadiusAuthLogs(
+  hotelSlug: string,
+  limit = 5,
+): Promise<RadiusAuthLog[]> {
+  const sql = radiusSql();
+  const rows = await sql<{
+    id: string;
+    username: string;
+    reply: string;
+    nas_name: string | null;
+    authdate: Date | null;
+  }[]>`
+    select p.id, p.username, p.reply,
+      coalesce(n.shortname, p.nasipaddress::text) as nas_name,
+      p.authdate
+    from radpostauth p
+    left join nas n on n.nasname = p.nasipaddress::text
+    where p.username like ${hotelSlug + '-%'}
+      or p.username like ${`staff-${hotelSlug}-%`}
+    order by p.authdate desc nulls last
+    limit ${limit}`;
+
+  return rows.map((row) => ({
+    id: String(row.id),
+    username: row.username,
+    reply: row.reply,
+    nasName: row.nas_name ?? null,
+    authDate: row.authdate,
+  }));
+}
+
+/** Full auth log overview for the Auth Logs page (logs + KPI aggregates). */
+export async function getRadiusAuthLogOverview(
+  hotelSlug: string,
+  limit = 100,
+): Promise<RadiusAuthLogOverview> {
+  const sql = radiusSql();
+  const tz = 'Europe/Istanbul';
+  const guestPrefix = `${hotelSlug}-%`;
+  const staffPrefix = `staff-${hotelSlug}-%`;
+
+  const [logRows, kpiRows, sessionRows] = await Promise.all([
+    sql<{
+      id: string;
+      username: string;
+      reply: string;
+      nas_name: string | null;
+      authdate: Date | null;
+    }[]>`
+      select p.id, p.username, p.reply,
+        coalesce(n.shortname, p.nasipaddress::text) as nas_name,
+        p.authdate
+      from radpostauth p
+      left join nas n on n.nasname = p.nasipaddress::text
+      where p.username like ${guestPrefix}
+        or p.username like ${staffPrefix}
+      order by p.authdate desc nulls last
+      limit ${limit}`,
+
+    sql<{ daily_total: string; daily_accept: string; daily_reject: string }[]>`
+      select
+        count(*)::int as daily_total,
+        count(*) filter (where reply = 'Access-Accept')::int as daily_accept,
+        count(*) filter (where reply = 'Access-Reject')::int as daily_reject
+      from radpostauth
+      where (username like ${guestPrefix} or username like ${staffPrefix})
+        and (authdate at time zone ${tz})::date = (now() at time zone ${tz})::date`,
+
+    sql<{ active: string; avg_sec: string | null }[]>`
+      select
+        count(*) filter (where acctstoptime is null)::int as active,
+        avg(acctsessiontime) filter (where acctsessiontime > 0)::bigint as avg_sec
+      from radacct
+      where username like ${guestPrefix}
+        or username like ${staffPrefix}`,
+  ]);
+
+  const kpi = kpiRows[0] ?? { daily_total: '0', daily_accept: '0', daily_reject: '0' };
+  const sess = sessionRows[0] ?? { active: '0', avg_sec: null };
+
+  return {
+    logs: logRows.map((row) => ({
+      id: String(row.id),
+      username: row.username,
+      reply: row.reply,
+      nasName: row.nas_name ?? null,
+      authDate: row.authdate,
+    })),
+    dailyTotal: Number(kpi.daily_total),
+    dailyAccept: Number(kpi.daily_accept),
+    dailyReject: Number(kpi.daily_reject),
+    activeDevices: Number(sess.active),
+    avgSessionSeconds: Number(sess.avg_sec ?? 0),
+  };
 }
 
 /** Live radacct stats for a NAS (scoped by the IP RADIUS sees = nasname/exit IP). */
@@ -437,6 +679,127 @@ export async function getStaffAccountStats(username: string): Promise<StaffAccou
     avgSessionSeconds: Number(avgRow[0]?.avg_sec ?? 0),
     activeDevices: Number(activeRow[0]?.cnt ?? 0),
     dailyBytesLast7: byDay,
+  };
+}
+
+export interface RadiusAccountingRecord {
+  id: string;
+  sessionId: string | null;
+  username: string;
+  nasName: string | null;
+  start: Date | null;
+  sessionSeconds: number | null;
+  inOctets: number;
+  outOctets: number;
+  terminateCause: string | null;
+  active: boolean;
+}
+
+export interface RadiusAccountingOverview {
+  records: RadiusAccountingRecord[];
+  dailyLogins: number;
+  activeDevices: number;
+  avgSessionSeconds: number;
+  todayRecords: number;
+  todayBytes: number;
+}
+
+export async function getRadiusAccountingOverview(
+  hotelSlug: string,
+  limit = 200,
+): Promise<RadiusAccountingOverview> {
+  const sql = radiusSql();
+  const tz = 'Europe/Istanbul';
+  const guestPrefix = `${hotelSlug}-%`;
+  const staffPrefix = `staff-${hotelSlug}-%`;
+
+  const [recordRows, kpiRows] = await Promise.all([
+    sql<{
+      radacctid: string;
+      acctsessionid: string | null;
+      username: string;
+      nas_name: string | null;
+      acctstarttime: Date | null;
+      acctsessiontime: number | null;
+      acctinputoctets: string | null;
+      acctoutputoctets: string | null;
+      acctterminatecause: string | null;
+      active: boolean;
+    }[]>`
+      select
+        ra.radacctid,
+        ra.acctsessionid,
+        ra.username,
+        coalesce(n.shortname, ra.nasipaddress::text) as nas_name,
+        ra.acctstarttime,
+        greatest(
+          0,
+          coalesce(
+            ra.acctsessiontime,
+            extract(epoch from (now() - ra.acctstarttime))::bigint,
+            0
+          )
+        )::bigint as acctsessiontime,
+        ra.acctinputoctets,
+        ra.acctoutputoctets,
+        ra.acctterminatecause,
+        (ra.acctstoptime is null) as active
+      from radacct ra
+      left join nas n on n.nasname = ra.nasipaddress::text
+      where ra.username like ${guestPrefix}
+        or ra.username like ${staffPrefix}
+      order by ra.acctstarttime desc nulls last
+      limit ${limit}`,
+
+    sql<{
+      daily_logins: string;
+      active_devices: string;
+      avg_sec: string | null;
+      today_records: string;
+      today_bytes: string;
+    }[]>`
+      select
+        count(*) filter (
+          where (acctstarttime at time zone ${tz})::date = (now() at time zone ${tz})::date
+        )::int as daily_logins,
+        count(*) filter (where acctstoptime is null)::int as active_devices,
+        avg(acctsessiontime) filter (where acctsessiontime > 0)::bigint as avg_sec,
+        count(*) filter (
+          where (acctstarttime at time zone ${tz})::date = (now() at time zone ${tz})::date
+        )::int as today_records,
+        coalesce(sum(
+          coalesce(acctinputoctets, 0) + coalesce(acctoutputoctets, 0)
+        ) filter (
+          where (acctstarttime at time zone ${tz})::date = (now() at time zone ${tz})::date
+        ), 0)::bigint as today_bytes
+      from radacct
+      where username like ${guestPrefix}
+        or username like ${staffPrefix}`,
+  ]);
+
+  const kpi = kpiRows[0] ?? {
+    daily_logins: '0', active_devices: '0', avg_sec: null,
+    today_records: '0', today_bytes: '0',
+  };
+
+  return {
+    records: recordRows.map((r) => ({
+      id: String(r.radacctid),
+      sessionId: r.acctsessionid,
+      username: r.username,
+      nasName: r.nas_name ?? null,
+      start: r.acctstarttime,
+      sessionSeconds: r.acctsessiontime != null ? Number(r.acctsessiontime) : null,
+      inOctets: Number(r.acctinputoctets ?? 0),
+      outOctets: Number(r.acctoutputoctets ?? 0),
+      terminateCause: r.acctterminatecause || null,
+      active: Boolean(r.active),
+    })),
+    dailyLogins: Number(kpi.daily_logins),
+    activeDevices: Number(kpi.active_devices),
+    avgSessionSeconds: Number(kpi.avg_sec ?? 0),
+    todayRecords: Number(kpi.today_records),
+    todayBytes: Number(kpi.today_bytes),
   };
 }
 

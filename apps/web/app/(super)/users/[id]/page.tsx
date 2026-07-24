@@ -16,6 +16,7 @@ import { L, type Lang } from '@/lib/i18n';
 import { avatarColor, initials } from '@/lib/avatar';
 import { UserForm } from '@/components/console/user-form';
 import { updateUserAction } from '../actions';
+import { ImpersonateButton } from '@/components/console/impersonate-button';
 
 const ROLE: Record<string, [string, readonly [string, string]]> = {
   super_admin: ['purple', ['Süper Admin', 'Super Admin']],
@@ -108,6 +109,9 @@ export default async function UserDetail({
           </div>
         </div>
         <div className="page-hero__actions">
+          {user.role !== 'super_admin' && (
+            <ImpersonateButton userId={user.id} label={L(['Taklit Et', 'Impersonate'], lang)} />
+          )}
           <Link className="btn btn--primary" href={`/users/${user.id}?tab=edit`}>
             <Pencil size={16} /> {L(['Düzenle', 'Edit'], lang)}
           </Link>

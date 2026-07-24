@@ -51,7 +51,7 @@ const NAV: { group: Pair; items: Item[] }[] = [
     group: ['Bağlantı', 'Connectivity'],
     items: [
       { id: 'pms', icon: Database, label: ['PMS', 'PMS'], soon: true },
-      { id: 'radius', icon: Shield, label: ['Radius', 'Radius'], soon: true },
+      { id: 'radius', icon: Shield, label: ['FreeRADIUS', 'FreeRADIUS'] },
       { id: 'mikrotik', icon: Router, label: ['Mikrotik', 'Mikrotik'] },
       { id: 'staff', icon: KeyRound, label: ['Personel', 'Staff'] },
     ],

@@ -11,6 +11,21 @@
   cursor: pointer;
 }
 
+/* staff-specific fchip with overlay select */
+.staff-fchip {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.staff-fchip select {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  cursor: pointer;
+}
+
 .staff-search {
   background: var(--surface-2);
 }

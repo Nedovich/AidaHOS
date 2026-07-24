@@ -6,6 +6,7 @@ import {
   isRadiusConfigured,
   listEventLocations,
   listRadiusUsers,
+  listStaffAccounts,
   nasShortname,
   type Loc,
   type NasSessionStats,
@@ -145,7 +146,11 @@ export async function HotelDetailView({
   let radiusUsers: RadiusUserSummary[] = [];
   if (tab === 'connections' && isCentral) {
     try {
-      if (isRadiusConfigured()) radiusUsers = await listRadiusUsers();
+      if (isRadiusConfigured()) {
+        const staffAccts = await listStaffAccounts(hotel.id);
+        const staffUsernames = staffAccts.map((a) => a.radiusUsername);
+        radiusUsers = await listRadiusUsers(hotel.slug, staffUsernames);
+      }
     } catch {
       radiusUsers = [];
     }
@@ -194,7 +199,7 @@ export async function HotelDetailView({
           </div>
         </div>
         <div className="page-hero__actions">
-          <Link className="btn btn--ghost" href={crumbHref}><ExternalLink size={16} /> {L(['Portalı gör', 'View portal'], lang)}</Link>
+          <Link className="btn btn--ghost" href={`/api/portal-preview?hotelSlug=${hotel.slug}`} target="_blank" rel="noopener noreferrer"><ExternalLink size={16} /> {L(['Portalı gör', 'View portal'], lang)}</Link>
           <Link className="btn btn--primary" href={`${basePath}/${hotel.id}?tab=edit`}><Pencil size={16} /> {L(['Düzenle', 'Edit'], lang)}</Link>
         </div>
       </div>

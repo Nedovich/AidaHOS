@@ -39,6 +39,107 @@ final result: passed
 
 ---
 
+# FreeRADIUS Active Sessions Design QA
+
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_e6NWCn/Screenshot 2026-07-24 at 20.48.35.png`
+- Source implementation: `design/aida/project/assets/screens/connectivity.js`
+- Implementation route: `/h/[hotelId]/radius`
+- Verification mode: static code and TypeScript checks only
+
+## Implemented
+
+- FreeRADIUS page hero, live status, five-tab navigation and the Active Sessions selected state.
+- Three KPI cards, hotel-scoped live `radacct` queries, NAS filter chips, search, CSV export and pagination.
+- Active-session table plus the Daily Authentications and Recent Auth Logs sections below the fold.
+- Responsive desktop, tablet and mobile behavior using the existing console tokens.
+- Sidebar FreeRADIUS navigation is enabled.
+
+## Verification
+
+- `@aidahos/db` TypeScript check passed.
+- `@aidahos/web` TypeScript check passed.
+- `git diff --check` passed.
+- Browser/render comparison was intentionally not run at the user's request.
+
+final result: blocked
+
+---
+
+# FreeRADIUS Auth Logs Design QA
+
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_PZxWE8/Screenshot 2026-07-24 at 20.59.25.png`
+- Source implementation: `design/aida/project/assets/screens/connectivity.js`
+- Implementation route: `/h/[hotelId]/radius/auth-logs`
+- Verification mode: static code and TypeScript checks only
+
+## Implemented
+
+- Shared FreeRADIUS page hero and route-aware five-tab navigation.
+- Source-matched KPI cards and ten realistic dummy authentication records.
+- All, Access-Accept, Access-Reject and Access-Challenge filters.
+- User, IP, NAS and reason search with localized labels and empty state.
+- Responsive table layout and source-matched status chips.
+
+## Verification
+
+- `@aidahos/web` TypeScript check passed.
+- `git diff --check` passed.
+- Browser/render comparison was intentionally not run at the user's request.
+
+final result: blocked
+
+---
+
+# FreeRADIUS Session Detail Design QA
+
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_tPWwxG/Screenshot 2026-07-24 at 21.26.05.png`
+- Source implementation: `design/aida/project/assets/screens/connectivity.js`
+- Implementation route: `/h/[hotelId]/radius/sessions/[sessionId]`
+- Verification mode: static code and TypeScript checks only
+
+## Implemented
+
+- Active Sessions table rows now open a hotel-scoped detail route and carry the selected user, IP, NAS, duration and data values into the screen.
+- Source-matched identity header, active/NAS badges, Re-authenticate and Disconnect demo actions.
+- Four KPI cards, seven-day data usage chart, status filters, connection search and seven realistic dummy history records.
+- Keyboard-accessible table navigation and responsive desktop, tablet and mobile layouts.
+- Disconnect and Re-authenticate actions update the visible demo status without invoking a production network operation.
+
+## Verification
+
+- `@aidahos/web` TypeScript check passed.
+- `git diff --check` passed.
+- Browser/render comparison was intentionally not run at the user's request.
+
+final result: blocked
+
+---
+
+# FreeRADIUS Accounting Design QA
+
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_D8bLKK/Screenshot 2026-07-24 at 22.04.00.png`
+- Source implementation: `design/aida/project/assets/screens/connectivity.js`
+- Implementation route: `/h/[hotelId]/radius/accounting`
+- Verification mode: static code and TypeScript checks only
+
+## Implemented
+
+- Accounting is enabled in the shared FreeRADIUS subnavigation.
+- Source-matched FreeRADIUS hero, live indicator, three overview KPIs and three accounting KPIs.
+- Eight realistic dummy accounting records split evenly between active and closed sessions.
+- Status filters, user/session/NAS search, five-row pagination and working CSV export.
+- Responsive table and toolbar behavior using the existing console design tokens.
+
+## Verification
+
+- `@aidahos/web` TypeScript check passed.
+- `git diff --check` passed.
+- Browser/render comparison was intentionally not run at the user's request.
+
+final result: blocked
+
+---
+
 # Staff Account Detail Design QA
 
 - Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_aFdTrj/Screenshot 2026-07-24 at 08.26.22.png`

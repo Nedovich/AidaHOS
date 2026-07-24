@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
-import { AlertTriangle, KeyRound, Pencil, Plus, Router, Trash2, Wifi } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Filter, KeyRound, Pencil, Plus, Router, Search, Trash2, Wifi } from 'lucide-react';
 import { L, type Lang } from '@/lib/i18n';
 import { deleteStaffUserAction } from '@/app/(hotel)/h/[hotelId]/staff/actions';
 import type { StaffAccount } from '@aidahos/db';
@@ -72,6 +72,24 @@ export function StaffUsersClient({
   error: string | null;
   base: string;
 }) {
+  const [profileFilter, setProfileFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [query, setQuery] = useState('');
+
+  const profiles = Array.from(new Set(users.map((u) => u.mikrotikGroup).filter(Boolean))) as string[];
+
+  const filtered = users.filter((u) => {
+    if (profileFilter !== 'all' && u.mikrotikGroup !== profileFilter) return false;
+    if (statusFilter === 'online' && !u.online) return false;
+    if (statusFilter === 'offline' && u.online) return false;
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      const hay = `${u.displayName} ${u.localUsername} ${u.radiusUsername} ${u.mikrotikGroup ?? ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
   if (error) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: 'color-mix(in srgb, var(--err) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--err) 20%, transparent)', borderRadius: 'var(--r-md)', color: 'var(--err)', fontSize: 14 }}>
@@ -95,14 +113,61 @@ export function StaffUsersClient({
   }
 
   return (
-    <div className="card staff-accounts-card">
-      <div className="card__head">
-        <div>
-          <div className="card__title">{L(['Tüm Hesaplar', 'All Accounts'], lang)}</div>
-          <div className="card__sub">{users.length} {L(['hesap', 'accounts'], lang)}</div>
-        </div>
+    <>
+      <div className="filterbar staff-filterbar">
+        <label className="fchip staff-fchip">
+          <KeyRound size={15} />
+          <span>{profileFilter === 'all' ? L(['Tüm Profiller', 'All Profiles'], lang) : profileFilter}</span>
+          <ChevronDown size={14} className="chev" />
+          <select
+            value={profileFilter}
+            onChange={(e) => setProfileFilter(e.target.value)}
+          >
+            <option value="all">{L(['Tüm Profiller', 'All Profiles'], lang)}</option>
+            {profiles.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="fchip staff-fchip">
+          <Filter size={15} />
+          <span>{statusFilter === 'all' ? L(['Tüm Durumlar', 'All Statuses'], lang) : statusFilter === 'online' ? L(['Çevrimiçi', 'Online'], lang) : L(['Çevrimdışı', 'Offline'], lang)}</span>
+          <ChevronDown size={14} className="chev" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">{L(['Tüm Durumlar', 'All Statuses'], lang)}</option>
+            <option value="online">{L(['Çevrimiçi', 'Online'], lang)}</option>
+            <option value="offline">{L(['Çevrimdışı', 'Offline'], lang)}</option>
+          </select>
+        </label>
+
+        <div className="filterbar__spacer" />
+
+        <label className="searchmini">
+          <Search size={15} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={L(['Hesap ara…', 'Search accounts…'], lang)}
+          />
+        </label>
       </div>
-      <div className="card__body staff-table-wrap">
+
+      <div className="card staff-accounts-card">
+        <div className="card__head">
+          <div>
+            <div className="card__title">{L(['Tüm Hesaplar', 'All Accounts'], lang)}</div>
+            <div className="card__sub">
+              {filtered.length === users.length
+                ? `${users.length} ${L(['hesap', 'accounts'], lang)}`
+                : `${filtered.length} / ${users.length} ${L(['hesap', 'accounts'], lang)}`}
+            </div>
+          </div>
+        </div>
+        <div className="card__body staff-table-wrap">
         <table className="table staff-table">
           <thead>
             <tr>
@@ -115,7 +180,7 @@ export function StaffUsersClient({
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
+            {filtered.map((user) => (
               <tr key={user.radiusUsername} className="row-link">
                 <td>
                   <div className="set-mem">
@@ -159,7 +224,13 @@ export function StaffUsersClient({
             ))}
           </tbody>
         </table>
+        {filtered.length === 0 && users.length > 0 && (
+          <div style={{ textAlign: 'center', padding: '32px 24px', color: 'var(--text-muted)', fontSize: 14 }}>
+            {L(['Filtreyle eşleşen hesap bulunamadı.', 'No accounts match the current filters.'], lang)}
+          </div>
+        )}
       </div>
     </div>
+    </>
   );
 }

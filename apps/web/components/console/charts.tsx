@@ -131,15 +131,23 @@ export function AreaChart({
           <stop offset="1" stopColor={color} stopOpacity="0.02" />
         </linearGradient>
       </defs>
-      {Array.from({ length: max + 1 }, (_, value) => {
-        const y = top + plotH - (value / Math.max(1, max)) * plotH;
-        return (
-          <g key={value}>
-            <line x1={left} x2={w - right} y1={y} y2={y} stroke="var(--border-faint)" strokeWidth="1" />
-            <text x={left - 12} y={y + 4} textAnchor="end" fill="var(--text-3)" fontSize="10">{value}</text>
-          </g>
-        );
-      })}
+      {(() => {
+        const STEPS = 5;
+        const rawStep = max / STEPS;
+        const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep || 1)));
+        const step = Math.ceil(rawStep / magnitude) * magnitude || 1;
+        const ticks: number[] = [];
+        for (let v = 0; v <= max; v += step) ticks.push(v);
+        return ticks.map((value) => {
+          const y = top + plotH - (value / Math.max(1, max)) * plotH;
+          return (
+            <g key={value}>
+              <line x1={left} x2={w - right} y1={y} y2={y} stroke="var(--border-faint)" strokeWidth="1" />
+              <text x={left - 12} y={y + 4} textAnchor="end" fill="var(--text-3)" fontSize="10">{value}</text>
+            </g>
+          );
+        });
+      })()}
       <path d={area} fill={`url(#${gradientId})`} />
       <path d={line} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
       {points.map(([x, y], index) => (

@@ -129,15 +129,32 @@ export async function loginStaff(
   const username = `staff-${hotel.slug}-${trimUser}`;
 
   // Verify the credentials exist in radcheck
+  let displayName: string | null = null;
   try {
-    const { getRadiusUser } = await import('@aidahos/db');
+    const { getRadiusUser, getStaffAccount } = await import('@aidahos/db');
     const radiusUser = await getRadiusUser(username);
     if (!radiusUser || radiusUser.password !== trimPass) {
       return { ok: false, error: 'invalid' };
     }
+    const staffAccount = await getStaffAccount(username);
+    displayName = staffAccount?.displayName ?? null;
   } catch {
     return { ok: false, error: 'provisioning' };
   }
+
+  // Set a session cookie so the portal shows the staff member's real name.
+  const jar = await cookies();
+  jar.set(
+    GUEST_COOKIE,
+    JSON.stringify({
+      hotelSlug: hotel.slug,
+      room: null,
+      name: displayName,
+      checkIn: null,
+      checkOut: null,
+    }),
+    { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 8 * 60 * 60 },
+  );
 
   return { ok: true, username };
 }

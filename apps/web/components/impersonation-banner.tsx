@@ -1,15 +1,30 @@
-import { getSession } from '@/lib/auth';
-import { getLang } from '@/lib/i18n-server';
-import { L } from '@/lib/i18n';
-import { SubmitButton } from '@/components/console/submit-button';
-import { stopImpersonate } from '@/app/(super)/actions';
+'use client';
 
-/** Shown app-wide while a super_admin is impersonating another user. */
-export async function ImpersonationBanner() {
-  const session = await getSession();
-  const impersonatedBy = session?.session?.impersonatedBy;
-  if (!impersonatedBy) return null;
-  const lang = await getLang();
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+export function ImpersonationBanner({
+  email,
+  label,
+  stopLabel,
+}: {
+  email: string;
+  label: string;
+  stopLabel: string;
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  async function handleStop() {
+    setLoading(true);
+    try {
+      await fetch('/api/impersonate/stop', { method: 'POST' });
+      router.push('/dashboard');
+      router.refresh();
+    } catch {
+      setLoading(false);
+    }
+  }
 
   return (
     <div
@@ -35,27 +50,28 @@ export async function ImpersonationBanner() {
         }}
       />
       <span>
-        {L(['Kullanıcı taklidi aktif —', 'Impersonation active —'], lang)} <b>{session?.user?.email}</b>{' '}
-        {L(['olarak görüntülüyorsunuz.', 'view.'], lang)}
+        {label} <b>{email}</b>
       </span>
-      <form action={stopImpersonate} style={{ marginLeft: 'auto' }}>
-        <SubmitButton
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 7,
-            padding: '6px 13px',
-            borderRadius: 999,
-            background: 'rgba(255,255,255,.16)',
-            color: '#fff',
-            fontWeight: 600,
-            border: 'none',
-            cursor: 'pointer',
-          }}
-        >
-          {L(['Taklidi bitir', 'Stop impersonating'], lang)}
-        </SubmitButton>
-      </form>
+      <button
+        type="button"
+        disabled={loading}
+        onClick={handleStop}
+        style={{
+          marginLeft: 'auto',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 7,
+          padding: '6px 13px',
+          borderRadius: 999,
+          background: 'rgba(255,255,255,.16)',
+          color: '#fff',
+          fontWeight: 600,
+          border: 'none',
+          cursor: loading ? 'wait' : 'pointer',
+        }}
+      >
+        {loading ? '…' : stopLabel}
+      </button>
     </div>
   );
 }

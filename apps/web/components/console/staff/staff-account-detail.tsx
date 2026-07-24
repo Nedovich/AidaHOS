@@ -49,19 +49,11 @@ function fmtSessionDuration(seconds: number | null, lang: Lang): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-function fmtDate(date: Date | null, lang: Lang): { day: string; time: string } {
+function fmtDate(date: Date | null): { day: string; time: string } {
   if (!date) return { day: '—', time: '—' };
-  const now = new Date();
-  const todayStr = now.toDateString();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const d = date.toDateString();
-  const day = d === todayStr
-    ? L(['Bugün', 'Today'], lang)
-    : d === yesterday.toDateString()
-      ? L(['Dün', 'Yesterday'], lang)
-      : date.toLocaleDateString(lang === 'tr' ? 'tr-TR' : 'en-GB', { day: 'numeric', month: 'short' });
-  const time = date.toLocaleTimeString(lang === 'tr' ? 'tr-TR' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
   return { day, time };
 }
 
@@ -85,7 +77,7 @@ export function StaffAccountDetail({
 
   const mappedSessions = account.sessions.map((s) => {
     const active = !s.stop;
-    const { day, time } = fmtDate(s.start, lang);
+    const { day, time } = fmtDate(s.start);
     return {
       id: s.id,
       mac: s.mac ?? '—',
@@ -158,7 +150,7 @@ export function StaffAccountDetail({
         <div className="card__head">
           <div>
             <div className="card__title">{L(['Günlük Veri Kullanımı', 'Daily Data Usage'], lang)}</div>
-            <div className="card__sub">{L(['Son 7 gün · GB', 'Last 7 days · GB'], lang)}</div>
+            <div className="card__sub">{L(['Son 7 gün · MB', 'Last 7 days · MB'], lang)}</div>
           </div>
         </div>
         <div className="card__body staff-usage-chart">

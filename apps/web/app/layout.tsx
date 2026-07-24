@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import './globals.css';
-import { ImpersonationBanner } from '@/components/impersonation-banner';
+import { ImpersonationBannerServer as ImpersonationBanner } from '@/components/impersonation-banner-server';
 
 export const metadata: Metadata = {
   title: 'AidaHOS Admin',
