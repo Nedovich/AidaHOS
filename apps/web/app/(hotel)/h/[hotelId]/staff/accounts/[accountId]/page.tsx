@@ -60,8 +60,8 @@ export default async function StaffAccountDetailPage({
     lastSeen = radiusAccount?.lastSeen ?? null;
     stats = fetchedStats;
     sessions = fetchedSessions;
-  } catch {
-    // RADIUS unavailable — show degraded view
+  } catch (e) {
+    console.error('[StaffDetail] RADIUS fetch failed:', e instanceof Error ? e.message : String(e));
   }
 
   const lastLogin = online
