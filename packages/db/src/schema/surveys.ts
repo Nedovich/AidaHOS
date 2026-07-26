@@ -28,6 +28,8 @@ export const surveys = pgTable('surveys', {
   // At most one default survey per hotel — shown after captive-WiFi login. Enforced
   // in setDefaultSurvey() (unsets siblings); no DB partial-unique to keep push simple.
   isDefault: boolean('is_default').notNull().default(false),
+  // At most one checkout survey per hotel group — shown in the captive-portal checkout popup.
+  isCheckout: boolean('is_checkout').notNull().default(false),
 
   // SurveyJS model JSON (questions / pages / logic / theme).
   json: jsonb('json').notNull().default(sql`'{}'::jsonb`),

@@ -26,6 +26,7 @@ import {
   getEventById,
   getHotelById,
   listEventCategories,
+  listEventRegistrations,
   listGroupEventLocations,
   resolveLoc,
   type Loc,
@@ -134,9 +135,10 @@ export default async function EventDetailPage({
   const ev = await getEventById(eventId);
   if (!ev || !groupId || ev.hotelGroupId !== groupId) notFound();
 
-  const [cats, locs] = await Promise.all([
+  const [cats, locs, registrations] = await Promise.all([
     listEventCategories(groupId),
     listGroupEventLocations(groupId),
+    listEventRegistrations(eventId),
   ]);
   const cat = ev.categoryId ? cats.find((item) => item.id === ev.categoryId) : undefined;
   const loc = ev.locationId ? locs.find((item) => item.id === ev.locationId) : undefined;
@@ -152,9 +154,8 @@ export default async function EventDetailPage({
   const categorySoft = `color-mix(in srgb, ${categoryColor} 14%, transparent)`;
   const eventStatus = ev.status as EventStatus;
 
-  // No registration model yet — counts are real zeros until that ships.
   const capacity = ev.capacity ?? 0;
-  const registered = 0;
+  const registered = registrations.length;
   const percentage = capacity > 0 ? Math.round((registered / capacity) * 100) : 0;
   const remaining = Math.max(0, capacity - registered);
 
@@ -387,19 +388,46 @@ export default async function EventDetailPage({
               </Link>
             </div>
             <div className="card__body events-detail-recent">
-              <div
-                style={{
-                  color: 'var(--text-3)',
-                  padding: '20px 4px',
-                  textAlign: 'center',
-                  fontSize: 13,
-                }}
-              >
-                {L(
-                  ['Henüz kayıt yok.', 'No registrations yet.'],
-                  lang,
-                )}
-              </div>
+              {registrations.length === 0 ? (
+                <div style={{ color: 'var(--text-3)', padding: '20px 4px', textAlign: 'center', fontSize: 13 }}>
+                  {L(['Henüz kayıt yok.', 'No registrations yet.'], lang)}
+                </div>
+              ) : (
+                <table className="table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th>{L(['Misafir', 'Guest'], lang)}</th>
+                      <th>{L(['Oda', 'Room'], lang)}</th>
+                      <th>{L(['Kayıt Tarihi', 'Registered'], lang)}</th>
+                      <th>{L(['Durum', 'Status'], lang)}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {registrations.slice(0, 8).map((reg) => (
+                      <tr key={reg.id}>
+                        <td>
+                          <div className="table__name">
+                            <span className="events-avatar" style={{ background: 'var(--accent)', fontSize: 12 }}>
+                              {(reg.guestName ?? '?').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
+                            </span>
+                            <strong>{reg.guestName ?? '—'}</strong>
+                          </div>
+                        </td>
+                        <td className="mono">{reg.roomNo ?? '—'}</td>
+                        <td style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                          {new Intl.DateTimeFormat(lang === 'tr' ? 'tr-TR' : 'en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(reg.createdAt))}
+                        </td>
+                        <td>
+                          <span className="badge badge--info">
+                            <span className="ico-dot" />
+                            {reg.status === 'pending' ? L(['Bekliyor', 'Pending'], lang) : reg.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </section>
         </div>

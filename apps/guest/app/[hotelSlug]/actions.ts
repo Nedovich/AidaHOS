@@ -1,14 +1,14 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { createSurveyResponse, findHotelBySlug, getSurveyById, isRadiusConfigured, upsertGuestStay, upsertRadiusUser } from '@aidahos/db';
+import { createEventRegistration, createSurveyResponse, findHotelBySlug, getGuestStayByKey, getSurveyById, isRadiusConfigured, markSurveyShown, upsertGuestStay, upsertRadiusUser } from '@aidahos/db';
 import { verifyGuest } from '@/lib/verify';
 import { GUEST_COOKIE } from '@/lib/constants';
 import { defaultSurveyOffer, type SurveyOffer } from '@/lib/survey-offer';
 import { deriveScore } from '@/lib/score';
 
 export type LoginResult =
-  | { ok: true; guestName: string | null; username: string; survey: SurveyOffer | null }
+  | { ok: true; guestName: string | null; username: string; survey: SurveyOffer | null; showCheckoutSurvey: boolean }
   | { ok: false; error: 'invalid' | 'not_found' | 'provisioning' | 'expired' | 'not_started' };
 
 const DOB = /^\d{8}$/; // DDMMYYYY
@@ -42,9 +42,36 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
   const checkOutMs = res.guest.checkOut ? new Date(res.guest.checkOut).getTime() : null;
   if (checkInMs != null && now < checkInMs) return { ok: false, error: 'not_started' };
   if (checkOutMs != null && now > checkOutMs + CHECKOUT_GRACE_MS) return { ok: false, error: 'expired' };
-  // Cap the RADIUS session to the remaining stay so the gateway drops the guest at checkout.
-  const sessionTimeoutSeconds =
-    checkOutMs != null ? Math.max(60, Math.floor((checkOutMs + CHECKOUT_GRACE_MS - now) / 1000)) : null;
+
+  // Compute survey trigger timestamp: checkout - hotel.surveyTriggerDays (midnight of that day).
+  const checkOut = res.guest.checkOut ? new Date(res.guest.checkOut) : null;
+  let surveyTriggerAt: Date | null = null;
+  if (checkOut) {
+    const d = new Date(checkOut);
+    d.setDate(d.getDate() - (hotel.surveyTriggerDays ?? 3));
+    d.setHours(0, 0, 0, 0);
+    surveyTriggerAt = d;
+  }
+
+  // Determine Session-Timeout:
+  // - If survey not yet shown AND trigger time has passed → cap to now+60s (force portal drop)
+  // - If survey not yet shown AND trigger in future → cap to trigger time
+  // - If survey already shown (or no trigger) → cap to checkout + 1 day
+  // We'll refine this after upsertGuestStay (need surveyShownAt from DB).
+  // For now compute based on trigger time alone; after upsert we patch if needed.
+  const triggerMs = surveyTriggerAt?.getTime() ?? null;
+  const checkoutPlus1Ms = checkOutMs != null ? checkOutMs + 24 * 60 * 60 * 1000 : null;
+
+  let sessionTimeoutSeconds: number | null = null;
+  if (checkoutPlus1Ms != null) {
+    if (triggerMs != null && now < triggerMs) {
+      // Survey not yet due — cap to trigger time
+      sessionTimeoutSeconds = Math.max(60, Math.floor((triggerMs - now) / 1000));
+    } else {
+      // Survey due or no trigger — cap to checkout + 1 day
+      sessionTimeoutSeconds = Math.max(60, Math.floor((checkoutPlus1Ms - now) / 1000));
+    }
+  }
 
   const username = `${hotel.slug}-${roomNo}`;
   try {
@@ -63,6 +90,9 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
 
   // Capture the verified reservation into our store (guest_stays). The hotel collects
   // signed KVKK consent at check-in; the PMS stays the source of truth, this is our copy.
+  let stayId: string | null = null;
+  let surveyShownAt: Date | null = null;
+  let resolvedTriggerMs: number | null = surveyTriggerAt?.getTime() ?? null;
   try {
     await upsertGuestStay({
       hotelGroupId: hotel.hotelGroupId,
@@ -79,7 +109,26 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
       country: res.guest.country ?? null,
       roomType: res.guest.roomType ?? null,
       currency: res.guest.currency ?? null,
+      surveyTriggerAt, // only written on first insert, not on re-login (see upsertGuestStay)
     });
+    // Fetch back to get stayId and surveyShownAt (needed for checkout survey logic).
+    const stay = await getGuestStayByKey(hotel.id, roomNo, birthDate);
+    stayId = stay?.id ?? null;
+    surveyShownAt = stay?.surveyShownAt ?? null;
+    // If DB has a manual override for triggerAt, use that for timeout calculation.
+    const dbTriggerAt = stay?.surveyTriggerAt ?? surveyTriggerAt;
+    resolvedTriggerMs = dbTriggerAt?.getTime() ?? null;
+    const dbTriggerMs = resolvedTriggerMs;
+    if (checkoutPlus1Ms != null) {
+      if (surveyShownAt) {
+        // Already shown — cap to checkout + 1 day
+        sessionTimeoutSeconds = Math.max(60, Math.floor((checkoutPlus1Ms - now) / 1000));
+      } else if (dbTriggerMs != null && now < dbTriggerMs) {
+        sessionTimeoutSeconds = Math.max(60, Math.floor((dbTriggerMs - now) / 1000));
+      } else {
+        sessionTimeoutSeconds = Math.max(60, Math.floor((checkoutPlus1Ms - now) / 1000));
+      }
+    }
   } catch (e) {
     // Non-fatal: capture failure shouldn't block the guest's internet access.
     console.error('guest_stays capture failed:', e);
@@ -88,8 +137,8 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
   // Persist a guest session so re-opening the portal skips the login screen.
   // Expires at checkout (fallback: 12h). Low-sensitivity (internet access itself is
   // gated by RADIUS, not this cookie), so a plain JSON value is fine.
-  const checkOut = res.guest.checkOut ? new Date(res.guest.checkOut) : null;
-  const expires = checkOut && checkOut.getTime() > Date.now() ? checkOut : new Date(Date.now() + 12 * 60 * 60 * 1000);
+  const checkOutDate = res.guest.checkOut ? new Date(res.guest.checkOut) : null;
+  const expires = checkOutDate && checkOutDate.getTime() > Date.now() ? checkOutDate : new Date(Date.now() + 12 * 60 * 60 * 1000);
   const jar = await cookies();
   jar.set(
     GUEST_COOKIE,
@@ -98,15 +147,23 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
       room: roomNo,
       name: res.guest.guestName,
       checkIn: res.guest.checkIn ? new Date(res.guest.checkIn).toISOString() : null,
-      checkOut: checkOut ? checkOut.toISOString() : null,
+      checkOut: checkOutDate ? checkOutDate.toISOString() : null,
     }),
     { httpOnly: true, sameSite: 'lax', path: '/', expires },
   );
 
+  // Show checkout survey popup if trigger time has passed and not yet shown this stay.
+  const showCheckoutSurvey = !surveyShownAt && resolvedTriggerMs != null && now >= resolvedTriggerMs;
+
+  // Mark survey as shown if we're about to show it, so next login skips it.
+  if (showCheckoutSurvey && stayId) {
+    try { await markSurveyShown(stayId); } catch { /* non-fatal */ }
+  }
+
   // Offer the hotel's default survey right after login (unless already answered this stay).
   const survey = await defaultSurveyOffer(hotel.id, roomNo, res.guest.checkIn);
 
-  return { ok: true, guestName: res.guest.guestName, username, survey };
+  return { ok: true, guestName: res.guest.guestName, username, survey, showCheckoutSurvey };
 }
 
 /**
@@ -157,6 +214,38 @@ export async function loginStaff(
   );
 
   return { ok: true, username };
+}
+
+export type EventRegistrationResult = { ok: true } | { ok: false; error?: string };
+
+/**
+ * Register the logged-in guest for an event.
+ * Guest identity is read from the session cookie — the client never sends it.
+ */
+export async function registerForEvent(
+  hotelSlug: string,
+  eventId: string,
+): Promise<EventRegistrationResult> {
+  const jar = await cookies();
+  const raw = jar.get('aida_guest')?.value;
+  if (!raw) return { ok: false, error: 'no_session' };
+  let s: { hotelSlug?: string; room?: string; name?: string };
+  try { s = JSON.parse(raw); } catch { return { ok: false }; }
+  if (!s.hotelSlug) return { ok: false };
+
+  const hotel = await findHotelBySlug(hotelSlug);
+  if (!hotel) return { ok: false, error: 'not_found' };
+
+  const res = await createEventRegistration({
+    eventId,
+    hotelId: hotel.id,
+    hotelGroupId: hotel.hotelGroupId,
+    roomNo: s.room ?? null,
+    guestName: s.name ?? null,
+    phone: null,
+    email: null,
+  });
+  return res;
 }
 
 export type CaptiveSubmitResult = { ok: true } | { ok: false };

@@ -11,6 +11,7 @@ import '@/styles/console/events.css';
 import '@/styles/console/dining.css';
 import '@/styles/console/staff.css';
 import '@/styles/console/radius.css';
+import '@/styles/console/guests.css';
 import { getHotelById, getHotelsForGroup } from '@aidahos/db';
 import { canAccessHotel, getSession } from '@/lib/auth';
 import { getLang } from '@/lib/i18n-server';

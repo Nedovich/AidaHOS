@@ -36,6 +36,14 @@ export const guestStays = pgTable(
     roomType: text('room_type'),
     currency: text('currency'),
     reservationRef: text('reservation_ref'),
+    // Checkout survey trigger: when to interrupt the session and show the checkout survey.
+    // Set automatically at login = checkout - hotel.survey_trigger_days (midnight of that day).
+    // Can be overridden manually from the guest detail page (with time precision for testing).
+    surveyTriggerAt: timestamp('survey_trigger_at', { withTimezone: true }),
+    // Set when the checkout popup is shown — prevents showing it twice and switches the
+    // Session-Timeout to checkout + 1 day so the guest is not interrupted again.
+    surveyShownAt: timestamp('survey_shown_at', { withTimezone: true }),
+
     lastVerifiedAt: timestamp('last_verified_at', { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

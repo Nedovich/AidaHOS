@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { eventStatusType } from './enums';
 import { hotelGroups, hotels } from './tenancy';
 
@@ -72,3 +72,32 @@ export const events = pgTable('events', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Guest registrations for events that have registrationRequired=true.
+ * Written by the guest portal server action; read by the hotel console.
+ */
+export const eventRegistrations = pgTable(
+  'event_registrations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    eventId: uuid('event_id')
+      .notNull()
+      .references(() => events.id, { onDelete: 'cascade' }),
+    hotelId: uuid('hotel_id')
+      .notNull()
+      .references(() => hotels.id, { onDelete: 'cascade' }),
+    hotelGroupId: uuid('hotel_group_id')
+      .notNull()
+      .references(() => hotelGroups.id, { onDelete: 'cascade' }),
+    roomNo: text('room_no'),
+    guestName: text('guest_name'),
+    phone: text('phone'),
+    email: text('email'),
+    status: text('status').notNull().default('pending'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniq: unique('event_registrations_event_room').on(t.eventId, t.roomNo),
+  }),
+);

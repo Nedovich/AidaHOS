@@ -28,7 +28,8 @@ export function SurveyBuilderClient({
     const c = new SurveyCreator({
       showThemeTab: true,
       showTranslationTab: true,
-      showJSONEditorTab: true,
+      showJSONEditorTab: false,
+      showLogicTab: false,
     });
     try {
       c.JSON = (json && typeof json === 'object' ? json : {}) as object;
@@ -56,6 +57,15 @@ export function SurveyBuilderClient({
     };
     c.onActiveTabChanged.add((_s: unknown, o: { tabName?: string }) => {
       if (o?.tabName === 'translation') ensureLocales();
+    });
+
+    // Reorder tabs: Designer → Translations → Preview → Themes
+    // tabbedMenu.actions is populated synchronously after construction.
+    const ORDER = ['designer', 'translation', 'preview', 'theme'];
+    const tabs = (c.tabbedMenu as unknown as { actions: Array<{ id: string }> }).actions;
+    ORDER.forEach((id, idx) => {
+      const i = tabs.findIndex((t) => t.id === id);
+      if (i !== -1 && i !== idx) tabs.splice(idx, 0, tabs.splice(i, 1)[0]!);
     });
 
     return c;

@@ -14,7 +14,16 @@ type Cat = { id: string; name: Loc; color: string };
 type Loc2 = { id: string; name: Loc; hotelId: string };
 type HotelOpt = { id: string; name: string; slug: string };
 type EventStatus = 'draft' | 'scheduled' | 'live' | 'full' | 'completed' | 'cancelled';
-type EventOpt = { registrationRequired?: boolean; paid?: boolean; maxPerBooking?: number; recurring?: boolean };
+type RecurringType = 'daily' | 'weekly' | 'custom';
+type EventOpt = {
+  registrationRequired?: boolean;
+  paid?: boolean;
+  maxPerBooking?: number;
+  recurring?: boolean;
+  recurringType?: RecurringType;
+  recurringDays?: number[]; // 0=Sun … 6=Sat
+  recurringUntil?: string | null; // ISO date string
+};
 export type EventInit = {
   id: string; name: Loc; description: Loc;
   categoryId: string | null; locationId: string | null; hotelId: string;
@@ -53,7 +62,8 @@ export function EventForm({
   const [categoryId, setCategoryId] = useState<string | null>(event?.categoryId ?? categories[0]?.id ?? null);
   const [hotelSel, setHotelSel] = useState<string>(event?.hotelId ?? consoleHotelId);
   const [locationId, setLocationId] = useState<string>(event?.locationId ?? '');
-  const [date, setDate] = useState(sDT.date);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(sDT.date || todayIso);
   const [start, setStart] = useState(sDT.time);
   const [end, setEnd] = useState(eDT.time);
   const [capacity, setCapacity] = useState(String(event?.capacity ?? 100));
@@ -64,6 +74,9 @@ export function EventForm({
     paid: event?.options?.paid ?? false,
     maxPerBooking: event?.options?.maxPerBooking ?? 6,
     recurring: event?.options?.recurring ?? false,
+    recurringType: (event?.options?.recurringType ?? 'daily') as RecurringType,
+    recurringDays: event?.options?.recurringDays ?? [],
+    recurringUntil: event?.options?.recurringUntil ?? null,
   });
   const [showCat, setShowCat] = useState(false);
   const [showLoc, setShowLoc] = useState(false);
@@ -278,6 +291,77 @@ export function EventForm({
             <input className="finput events-max-booking" type="number" value={opt.maxPerBooking} onChange={(e) => setOpt((o) => ({ ...o, maxPerBooking: Number(e.target.value) || 0 }))} />
           </div>
           <OptRow title={L(['Tekrarlayan etkinlik', 'Recurring event'], lang)} desc={L(['Belirli günlerde otomatik tekrarlanır.', 'Repeats automatically on set days.'], lang)} on={opt.recurring} onToggle={() => setOpt((o) => ({ ...o, recurring: !o.recurring }))} />
+          {opt.recurring && (
+            <div className="events-recurring-panel">
+              <div className="events-recurring-row">
+                <label className="flabel">{L(['Tekrar tipi', 'Repeat type'], lang)}</label>
+                <div className="seg-pills">
+                  {([
+                    ['daily', L(['Her gün', 'Daily'], lang)],
+                    ['weekly', L(['Haftalık', 'Weekly'], lang)],
+                    ['custom', L(['Özel günler', 'Custom days'], lang)],
+                  ] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      className={['seg-pill', opt.recurringType === val ? 'on' : null].filter(Boolean).join(' ')}
+                      onClick={() => setOpt((o) => ({ ...o, recurringType: val, recurringDays: [] }))}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {opt.recurringType === 'custom' && (
+                <div className="events-recurring-row">
+                  <label className="flabel">{L(['Günler', 'Days'], lang)}</label>
+                  <div className="seg-pills">
+                    {(lang === 'tr'
+                      ? ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz']
+                      : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+                    ).map((label, i) => {
+                      const dayIndex = i === 6 ? 0 : i + 1; // Mon=1…Sun=0
+                      const active = opt.recurringDays.includes(dayIndex);
+                      return (
+                        <button
+                          key={dayIndex}
+                          type="button"
+                          className={['seg-pill', active ? 'on' : null].filter(Boolean).join(' ')}
+                          onClick={() => setOpt((o) => ({
+                            ...o,
+                            recurringDays: active
+                              ? o.recurringDays.filter((d) => d !== dayIndex)
+                              : [...o.recurringDays, dayIndex].sort(),
+                          }))}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="events-recurring-row">
+                <label className="flabel">{L(['Bitiş tarihi', 'End date'], lang)}</label>
+                <div className="dateinput events-dateinput" style={{ maxWidth: 240 }}>
+                  <CalendarDays size={16} />
+                  <input
+                    type="date"
+                    lang="en-GB"
+                    value={opt.recurringUntil ?? ''}
+                    min={date || undefined}
+                    onChange={(e) => setOpt((o) => ({ ...o, recurringUntil: e.target.value || null }))}
+                    style={inputBase}
+                  />
+                </div>
+                <span className="flabel" style={{ marginTop: 4, fontWeight: 400, color: 'var(--text-3)' }}>
+                  {L(['Boş bırakılırsa süresiz tekrarlanır.', 'Leave empty to repeat indefinitely.'], lang)}
+                </span>
+              </div>
+            </div>
+          )}
         </section>
       </div>
 

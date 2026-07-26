@@ -7,6 +7,7 @@ import {
   deleteSurvey,
   getResponseById,
   getSurveyById,
+  setCheckoutSurvey,
   setDefaultSurvey,
   setSurveyStatus,
   surveyNameExists,
@@ -144,6 +145,18 @@ export async function savePublishAction(consoleHotelId: string, surveyId: string
   }
   // Plain "Save Changes": persist settings, stay on the publish step.
   revalidatePath(`/h/${consoleHotelId}/surveys/${surveyId}/edit/publish`);
+}
+
+export async function setDefaultSurveyAction(consoleHotelId: string, surveyId: string, makeDefault: boolean) {
+  const { survey } = await assertSurveyInGroup(consoleHotelId, surveyId);
+  if (survey.hotelId) await setDefaultSurvey(survey.hotelId, surveyId, makeDefault);
+  revalidatePath(`/h/${consoleHotelId}/surveys/forms`);
+}
+
+export async function setCheckoutSurveyAction(consoleHotelId: string, surveyId: string, makeCheckout: boolean) {
+  const { groupId } = await assertSurveyInGroup(consoleHotelId, surveyId);
+  await setCheckoutSurvey(groupId, surveyId, makeCheckout);
+  revalidatePath(`/h/${consoleHotelId}/surveys/forms`);
 }
 
 export async function updateResponseInternalAction(consoleHotelId: string, respId: string, formData: FormData) {

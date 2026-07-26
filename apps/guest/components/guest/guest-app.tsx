@@ -9,6 +9,41 @@ import { BottomNav, Icon, Sheet } from './ui';
 import { ComingSoon, EventSheet, Events, Home, Login, Splash } from './screens';
 import { CaptiveSurvey } from '@/components/captive-survey';
 
+function CheckoutSurveyPopup({ onFill, onSkip }: { onFill: () => void; onSkip: () => void }) {
+  const { lang } = useLang();
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 70, display: 'grid', placeItems: 'center', padding: 24, background: 'rgba(20,28,30,.5)', backdropFilter: 'blur(3px)' }}>
+      <div className="card" style={{ width: '100%', maxWidth: 360, padding: 24, textAlign: 'center' }}>
+        <div style={{ width: 56, height: 56, margin: '0 auto 14px', borderRadius: 16, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--brand-primary) 14%, var(--surface))', color: 'var(--brand-primary)' }}>
+          <Icon name="star" size={26} stroke={2} />
+        </div>
+        <h3 style={{ margin: '0 0 6px', fontFamily: 'var(--font-display)', fontSize: 23, fontWeight: 600, color: 'var(--ink)' }}>
+          {L({ en: 'How was your stay?', tr: 'Konaklamanız nasıldı?', de: 'Wie war Ihr Aufenthalt?', ru: 'Как прошло пребывание?' }, lang)}
+        </h3>
+        <p className="t-body" style={{ margin: '0 0 20px' }}>
+          {L(
+            {
+              en: 'We\'d love to hear your feedback before you leave. It only takes a minute.',
+              tr: 'Ayrılmadan önce görüşlerinizi almak isteriz. Sadece bir dakika sürer.',
+              de: 'Wir würden gerne Ihr Feedback hören. Es dauert nur eine Minute.',
+              ru: 'Хотим услышать ваш отзыв перед отъездом. Это займёт минуту.',
+            },
+            lang,
+          )}
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button onClick={onFill} style={{ padding: '14px', border: 'none', borderRadius: 'var(--r-md)', background: 'var(--brand-primary)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+            {L({ en: 'Fill in the survey', tr: 'Anketi doldur', de: 'Umfrage ausfüllen', ru: 'Заполнить анкету' }, lang)}
+          </button>
+          <button onClick={onSkip} style={{ padding: '12px', border: 0, background: 'none', color: 'var(--ink-soft, var(--brand-secondary))', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+            {L({ en: 'Skip, connect me', tr: 'Geç, bağlan', de: 'Überspringen', ru: 'Пропустить' }, lang)}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Build the guest Brand tokens from a published portal config (name/colors/monogram). */
 function brandFromConfig(cfg: PortalConfig): Brand {
   const def = cfg.langs.default;
@@ -64,7 +99,7 @@ type SheetState = { type: null | 'reception' | 'event' | 'dining' | 'spa'; item?
 export type LoginFn = (
   room: string,
   dob: string,
-) => Promise<{ ok: boolean; error?: string; username?: string; survey?: SurveyOffer | null }>;
+) => Promise<{ ok: boolean; error?: string; username?: string; survey?: SurveyOffer | null; showCheckoutSurvey?: boolean }>;
 
 export type StaffLoginFn = (
   username: string,
@@ -119,11 +154,14 @@ export interface GuestSession {
   checkOut: string | null;
 }
 
+export type RegisterForEventFn = (eventId: string) => Promise<{ ok: boolean }>;
+
 export interface GuestAppProps {
   hotelSlug?: string;
   hotelName?: string | null;
   loginAction?: LoginFn;
   staffLoginAction?: StaffLoginFn;
+  registerForEventAction?: RegisterForEventFn;
   portal?: MikrotikPortal | null;
   startInApp?: boolean;
   session?: GuestSession | null;
@@ -132,13 +170,14 @@ export interface GuestAppProps {
   events?: AidaEvent[];
 }
 
-function AppInner({ loginAction, staffLoginAction, portal, hotelSlug, startInApp, session, surveyOffer, portalConfig, events }: { loginAction?: LoginFn; staffLoginAction?: StaffLoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; startInApp?: boolean; session?: GuestSession | null; surveyOffer?: SurveyOffer | null; portalConfig?: PortalConfig | null; events?: AidaEvent[] }) {
+function AppInner({ loginAction, staffLoginAction, registerForEventAction, portal, hotelSlug, startInApp, session, surveyOffer, portalConfig, events }: { loginAction?: LoginFn; staffLoginAction?: StaffLoginFn; registerForEventAction?: RegisterForEventFn; portal?: MikrotikPortal | null; hotelSlug?: string; startInApp?: boolean; session?: GuestSession | null; surveyOffer?: SurveyOffer | null; portalConfig?: PortalConfig | null; events?: AidaEvent[] }) {
   const [stage, setStage] = useState<'splash' | 'login' | 'app'>(startInApp ? 'app' : 'splash');
   // Default-survey flow: server passes surveyOffer on the ?connected=1 return; the dev
   // (no-MikroTik) login path supplies it via the loginAction result instead.
   const [offer, setOffer] = useState<SurveyOffer | null>(surveyOffer ?? null);
   const [invite, setInvite] = useState<boolean>(!!surveyOffer);
   const [surveyOpen, setSurveyOpen] = useState(false);
+  const [checkoutPopup, setCheckoutPopup] = useState(false);
   const clearUrl = () => {
     try {
       if (typeof window !== 'undefined' && window.location.search) window.history.replaceState(null, '', `/${hotelSlug ?? ''}`);
@@ -209,10 +248,12 @@ function AppInner({ loginAction, staffLoginAction, portal, hotelSlug, startInApp
           portal={portal}
           hotelSlug={hotelSlug}
           login={portalConfig?.login}
-          onLogin={(survey) => {
+          onLogin={(survey, showCheckoutSurvey) => {
             setStage('app');
             setTab('home');
-            if (survey) {
+            if (showCheckoutSurvey) {
+              setCheckoutPopup(true);
+            } else if (survey) {
               setOffer(survey);
               setInvite(true);
             }
@@ -235,19 +276,26 @@ function AppInner({ loginAction, staffLoginAction, portal, hotelSlug, startInApp
       {stage === 'app' && surveyOpen && offer && (
         <CaptiveSurvey offer={offer} onDone={() => { setSurveyOpen(false); clearUrl(); }} />
       )}
+      {stage === 'app' && checkoutPopup && (
+        <CheckoutSurveyPopup
+          onFill={() => { setCheckoutPopup(false); setTab('survey'); }}
+          onSkip={() => setCheckoutPopup(false)}
+        />
+      )}
       <EventSheet
         open={sheet.type === 'event'}
         ev={sheet.type === 'event' ? (sheet.item as AidaEvent) : null}
         joined={sheet.type === 'event' && sheet.item ? joined.has((sheet.item as AidaEvent).id) : false}
         onJoin={toggleJoin}
         onClose={() => setSheet({ type: null })}
+        onRegister={registerForEventAction}
       />
       <ReceptionSheet open={sheet.type === 'reception'} onClose={() => setSheet({ type: null })} />
     </div>
   );
 }
 
-export function GuestApp({ loginAction, staffLoginAction, portal, hotelSlug, startInApp, session, surveyOffer, portalConfig, events }: GuestAppProps = {}) {
+export function GuestApp({ loginAction, staffLoginAction, registerForEventAction, portal, hotelSlug, startInApp, session, surveyOffer, portalConfig, events }: GuestAppProps = {}) {
   // Initial language = the portal's default (unless the guest already picked one).
   const [lang, setLangState] = useState<Lang>((portalConfig?.langs.default as Lang) ?? 'en');
   useEffect(() => {
@@ -260,7 +308,7 @@ export function GuestApp({ loginAction, staffLoginAction, portal, hotelSlug, sta
   return (
     <LangCtx.Provider value={value}>
       <div style={{ position: 'relative', width: '100%', maxWidth: 440, height: '100dvh', margin: '0 auto', overflow: 'hidden', background: 'var(--bg)', boxShadow: '0 0 80px -20px rgba(40,25,12,.25)' }}>
-        <AppInner loginAction={loginAction} staffLoginAction={staffLoginAction} portal={portal} hotelSlug={hotelSlug} startInApp={startInApp} session={session} surveyOffer={surveyOffer} portalConfig={portalConfig} events={events} />
+        <AppInner loginAction={loginAction} staffLoginAction={staffLoginAction} registerForEventAction={registerForEventAction} portal={portal} hotelSlug={hotelSlug} startInApp={startInApp} session={session} surveyOffer={surveyOffer} portalConfig={portalConfig} events={events} />
       </div>
     </LangCtx.Provider>
   );

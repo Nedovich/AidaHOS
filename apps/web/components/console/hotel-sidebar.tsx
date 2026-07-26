@@ -17,11 +17,15 @@ import {
   LayoutGrid,
   Layers,
   Leaf,
+  Mail,
+  MessageCircle,
   Router,
   Settings,
   Shield,
+  Smile,
   Sparkles,
   UserCog,
+  UsersRound,
   UtensilsCrossed,
   type LucideIcon,
 } from 'lucide-react';
@@ -29,7 +33,15 @@ import { L } from '@/lib/i18n';
 import { useLang } from './lang-provider';
 
 type Pair = readonly [string, string];
-type Item = { id: string; icon: LucideIcon; label: Pair; soon?: boolean; adminOnly?: boolean };
+type ChildItem = { id: string; icon: LucideIcon; label: Pair };
+type Item = {
+  id: string;
+  icon: LucideIcon;
+  label: Pair;
+  soon?: boolean;
+  adminOnly?: boolean;
+  children?: ChildItem[];
+};
 
 const NAV: { group: Pair; items: Item[] }[] = [
   {
@@ -54,6 +66,17 @@ const NAV: { group: Pair; items: Item[] }[] = [
       { id: 'radius', icon: Shield, label: ['FreeRADIUS', 'FreeRADIUS'] },
       { id: 'mikrotik', icon: Router, label: ['Mikrotik', 'Mikrotik'] },
       { id: 'staff', icon: KeyRound, label: ['Personel', 'Staff'] },
+      {
+        id: 'guests',
+        icon: Smile,
+        label: ['Misafirler', 'Guests'],
+        children: [
+          { id: 'emails', icon: Mail, label: ['E-postalar', 'Emails'] },
+          { id: 'survey-sends', icon: ClipboardList, label: ['Anket Gönderimleri', 'Survey Sends'] },
+          { id: 'welcome-messages', icon: MessageCircle, label: ['Karşılama Mesajları', 'Welcome Messages'] },
+          { id: 'groups', icon: UsersRound, label: ['Gruplar', 'Groups'] },
+        ],
+      },
     ],
   },
   {
@@ -248,14 +271,36 @@ export function HotelSidebar({
               const href = `${base}/${it.id}`;
               const active = pathname === href || pathname.startsWith(`${href}/`);
               return (
-                <Link
-                  key={it.id}
-                  href={href}
-                  className={['nav__item', active ? 'active' : null].filter(Boolean).join(' ')}
-                >
-                  <Icon size={17} />
-                  <span>{L(it.label, lang)}</span>
-                </Link>
+                <div key={it.id}>
+                  <Link
+                    href={href}
+                    className={['nav__item', active ? 'active' : null].filter(Boolean).join(' ')}
+                  >
+                    <Icon size={17} />
+                    <span>{L(it.label, lang)}</span>
+                  </Link>
+                  {active && it.children?.length ? (
+                    <div className="nav__children">
+                      {it.children.map((child) => {
+                        const ChildIcon = child.icon;
+                        const childHref = `${href}/${child.id}`;
+                        const childActive =
+                          pathname === childHref || pathname.startsWith(`${childHref}/`);
+                        return (
+                          <Link
+                            key={child.id}
+                            href={childHref}
+                            className={`nav__child${childActive ? ' active' : ''}`}
+                            aria-current={childActive ? 'page' : undefined}
+                          >
+                            <ChildIcon size={15} />
+                            <span>{L(child.label, lang)}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
           </div>

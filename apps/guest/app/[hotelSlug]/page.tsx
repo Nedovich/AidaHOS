@@ -4,7 +4,7 @@ import { GuestApp, type GuestSession } from '@/components/guest/guest-app';
 import { GUEST_COOKIE } from '@/lib/constants';
 import { mapGuestEvents } from '@/lib/events-map';
 import { defaultSurveyOffer } from '@/lib/survey-offer';
-import { loginGuest, loginStaff } from './actions';
+import { loginGuest, loginStaff, registerForEvent } from './actions';
 
 // Guest portal for a hotel. In production the MikroTik captive portal redirects
 // guests here (its login.html forwards the hotspot vars as query params). The visual
@@ -24,6 +24,7 @@ export default async function GuestHome({
   const hotel = await findHotelBySlug(hotelSlug);
   const loginAction = loginGuest.bind(null, hotelSlug);
   const staffLoginAction = loginStaff.bind(null, hotelSlug);
+  const registerForEventAction = registerForEvent.bind(null, hotelSlug);
 
   // MikroTik hotspot context (passed by login.html). `ll` = link-login-only.
   const ll = one(sp.ll);
@@ -82,6 +83,7 @@ export default async function GuestHome({
       hotelName={hotel?.name ?? null}
       loginAction={loginAction}
       staffLoginAction={staffLoginAction}
+      registerForEventAction={registerForEventAction}
       portal={portal}
       startInApp={connected || session !== null}
       session={session}

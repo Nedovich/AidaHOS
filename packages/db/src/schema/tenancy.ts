@@ -71,6 +71,11 @@ export const hotels = pgTable('hotels', {
   // Guest portal brand/theme tokens (mirrors design tweaks system)
   brand: jsonb('brand').notNull().default(sql`'{}'::jsonb`),
 
+  // Survey trigger: how many days before checkout to interrupt internet and show the
+  // checkout survey. Default 3. Guest stays inherit this at login; can be overridden
+  // per-stay on the guest detail page.
+  surveyTriggerDays: integer('survey_trigger_days').notNull().default(3),
+
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

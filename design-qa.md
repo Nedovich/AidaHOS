@@ -39,6 +39,299 @@ final result: passed
 
 ---
 
+# Guest Connections Design QA
+
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_e6hzd5/Screenshot 2026-07-25 at 19.06.14.png`
+- Source implementation: `design/aida/project/assets/screens/guests.js`
+- Implementation route: `/h/[hotelId]/guests/connections`
+
+## Implemented
+
+- Connections is now a working Guests subnavigation route, with two-way navigation to the Guests list.
+- The four source KPI cards, All/Online/Offline filters, guest search, live connection table and pagination are present.
+- All 24 deterministic dummy guests include device, MAC, IP, last-seen and status information.
+- Connection rows open the matching guest detail page.
+- CSV export uses the currently filtered connection result.
+- Turkish and English labels use the existing console language system.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- Visual browser comparison is intentionally left to the user, per request.
+
+final result: blocked pending user visual review
+
+---
+
+# Guest Survey Send Detail Design QA
+
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_VBw1tH/Screenshot 2026-07-26 at 16.52.32.png`
+- Source implementation: `design/aida/project/assets/screens/guest-comms.js`
+- List route: `/h/[hotelId]/guests/survey-sends`
+- Detail route: `/h/[hotelId]/guests/survey-sends/[surveySendId]`
+
+## Implemented
+
+- The Survey Sends list now uses the complete nine-record handoff dataset and every row opens its matching detail page.
+- Detail pages include the source breadcrumb, survey identity, status badge and guest/date summary.
+- Scheduled records expose Go to Guest, Edit and Send Now actions; sent and completed records expose Resend.
+- Survey Details, scheduled/sent state messaging, completed response summaries and ratings follow the source variants.
+- Related Guest includes room, hotel, phone, email and connection status.
+- Send Activity reflects scheduled, sent and completed states with the matching dates.
+- Edited survey title and schedule values persist locally and appear when the detail page is reopened.
+- Turkish and English labels use the existing console language system.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- No browser or development server was started, per user request.
+- Visual browser comparison is intentionally left to the user.
+
+final result: blocked pending user visual review
+
+---
+
+# Guest Detail Action Modals Design QA
+
+- Source visuals: `Screenshot 2026-07-26 at 16.13.30.png` and `Screenshot 2026-07-26 at 16.14.02.png`
+- Source implementation: `design/aida/project/assets/screens/guest-comms.js`
+- Implementation route: `/h/[hotelId]/guests/[guestId]`
+
+## Implemented
+
+- Send Email opens the source-style modal with recipient, subject and message fields.
+- Send Checkout Survey opens the source-style modal with recipient, survey, date and time fields.
+- Send Welcome Message opens the source-style modal with recipient, title, message, date and time fields.
+- Modal overlay, dimensions, spacing, close control, field sizing and footer actions follow the source CSS.
+- Clicking the overlay, close button or Cancel dismisses the modal.
+- Send validates required fields, closes the modal and shows a success notification.
+- Print Registration Card opens the browser print dialog.
+- Existing survey-trigger editing and remove-guest confirmation remain available.
+- Modal content supports the console's Turkish and English language modes.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- No browser or development server was started, per user request.
+- Visual browser comparison is intentionally left to the user.
+
+final result: blocked pending user visual review
+
+---
+
+# Guest Communication Compose Pages Design QA
+
+- Source implementation: `design/aida/project/assets/screens/guest-comms.js`
+- New Email route: `/h/[hotelId]/guests/emails/new`
+- New Survey Send route: `/h/[hotelId]/guests/survey-sends/new`
+- New Welcome Message route: `/h/[hotelId]/guests/welcome-messages/new`
+
+## Implemented
+
+- The three tracking-screen primary actions now open their matching full-page compose route.
+- All pages share the source 640px form card, page header, top and bottom cancel actions, and primary send action.
+- New Email includes guest, subject and long-form email message fields.
+- New Survey Send includes guest, survey type, date and time fields plus the source scheduling hint.
+- New Welcome Message includes guest, title, message, date and time fields.
+- Guest options use the existing dummy guest records and room numbers.
+- Guest selection is validated before submission, and successful submission returns to the matching list.
+- The form stack and footer actions adapt to narrow screens.
+- Turkish and English labels use the existing console language system.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- No browser or development server was started, per user request.
+- Visual browser comparison is intentionally left to the user.
+
+final result: blocked pending user visual review
+
+---
+
+# Guest Groups Design QA
+
+- Source implementation: `design/aida/project/assets/screens/guest-groups.js`
+- List route: `/h/[hotelId]/guests/groups`
+- Detail route: `/h/[hotelId]/guests/groups/[groupId]`
+
+## Implemented
+
+- The source VIP Guests, Honeymoon Couples and Repeat Guests dummy groups are present.
+- Group cards reproduce the source icon, member count and stacked-member avatar treatment.
+- Every group card opens its corresponding detail route.
+- Detail pages include source-aligned heading actions and the complete member table.
+- Edit Members opens a working member selector; save and individual remove actions update the visible table.
+- Guest names link to their corresponding Guest Detail records.
+- Bulk Message remains visibly disabled and marked as coming soon, matching the source state.
+- Turkish and English labels use the existing console language system.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- Visual browser comparison is intentionally left to the user, per request.
+
+final result: blocked pending user visual review
+
+---
+
+# Guest Welcome Messages Design QA
+
+- Source implementation: `design/aida/project/assets/screens/guest-comms.js`
+- List route: `/h/[hotelId]/guests/welcome-messages`
+- Detail route: `/h/[hotelId]/guests/welcome-messages/[messageId]`
+
+## Implemented
+
+- Eight dummy welcome-message records cover sent, opened and scheduled states.
+- KPI cards, rounded filters, guest/title search and keyboard-accessible rows match the communications list pattern.
+- Every row opens its corresponding detail record.
+- Detail pages include the Guest Portal phone notification preview, related guest data and send activity.
+- Send now, resend, edit placeholder and guest navigation actions are included.
+- Turkish and English labels use the existing console language system.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- Visual browser comparison is intentionally left to the user, per request.
+
+final result: blocked pending user visual review
+
+---
+
+# Guest Email Detail Design QA
+
+- Source implementation: `design/aida/project/assets/screens/guest-comms.js`
+- Implementation route: `/h/[hotelId]/guests/emails/[emailId]`
+
+## Implemented
+
+- All ten dummy email records open their own detail route from the Emails table.
+- The source header hierarchy, status badge, guest identity and status-dependent actions are present.
+- Email Content includes sender, recipient, subject and localized message body.
+- Related Guest includes profile navigation, room, hotel, phone, email and connection state.
+- Send Activity shows scheduled, sent and opened states with matching dates and times.
+- Resend and Send Now update the email state and activity timeline without leaving the page.
+- The layout adapts to tablet and mobile widths.
+- Turkish and English labels use the existing console language system.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- Visual browser comparison is intentionally left to the user, per request.
+
+final result: blocked pending user visual review
+
+---
+
+# Guest Communications Sidebar and Emails Design QA
+
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_NYR0CI/Screenshot 2026-07-26 at 11.59.50.png`
+- Source implementations: `design/aida/project/assets/app.js`, `design/aida/project/assets/screens/guest-comms.js`
+- Implementation route: `/h/[hotelId]/guests/emails`
+
+## Implemented
+
+- Guests now expands to the source-aligned Emails, Survey Sends, Welcome Messages and Groups child navigation.
+- The child navigation preserves the active Guests parent state and independently highlights the current child route.
+- Emails includes source-aligned KPI cards, status chips, subject search, CSV export and ten realistic dummy records.
+- Filters and search update the visible table and record count.
+- Turkish and English labels use the existing console language system.
+- Sidebar child labels truncate safely instead of extending beyond the sidebar.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- Visual browser comparison is intentionally left to the user, per request.
+
+final result: blocked pending user visual review
+
+---
+
+# Guest Survey Sends Design QA
+
+- Source implementation: `design/aida/project/assets/screens/guest-comms.js`
+- List route: `/h/[hotelId]/guests/survey-sends`
+- Detail route: `/h/[hotelId]/guests/survey-sends/[surveySendId]`
+
+## Implemented
+
+- Survey Sends includes the source three-card KPI row, All/Sent/Completed/Scheduled filters, survey search and nine dummy records.
+- Every survey row opens a dedicated record detail page.
+- Detail pages include Survey Details, Related Guest and Send Activity cards.
+- Completed records show their completion timestamp, score, star rating and guest comment.
+- Sent and scheduled records show the matching response state explanation.
+- Resend and Send Now update the detail status without leaving the page.
+- Turkish and English labels use the existing console language system.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- Visual browser comparison is intentionally left to the user, per request.
+
+final result: blocked pending user visual review
+
+---
+
+# Guest Analytics Design QA
+
+- Source implementation: `design/aida/project/assets/screens/guests.js`
+- Implementation route: `/h/[hotelId]/guests/analytics`
+
+## Implemented
+
+- Analytics is available from the Guests, Connections and Tickets tab bars.
+- The shared four Guests KPI cards remain visible, matching the source module shell.
+- Average stay length, average survey score and repeat guest rate are calculated from the shared dummy guest records.
+- Guest arrivals trend, loyalty distribution, top countries, booking channels, room type popularity and ticket status sections match the source screen hierarchy.
+- Area, donut, horizontal distribution and room popularity charts use the existing AIDA chart colors and design tokens.
+- Analytics CSV export and the existing Add Guest notice interaction are active.
+- Turkish and English labels use the console language system.
+- Tablet and mobile layouts collapse to a single-column reading order.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- Visual browser comparison is intentionally left to the user, per request.
+
+final result: blocked pending user visual review
+
+---
+
+# Guest Detail Design QA
+
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_8peLJv/Screenshot 2026-07-25 at 18.37.19.png`
+- Source implementation: `design/aida/project/assets/screens/guests.js`
+- Implementation route: `/h/[hotelId]/guests/[guestId]`
+- State: deterministic dummy guest profiles; Elena Marchetti is the reference record
+
+## Implemented
+
+- The Guests table now opens a hotel-scoped detail route for each of the 24 dummy records.
+- Identity, stay and VIP badges, four KPI cards, PMS information, actions, notes, tickets and survey cards match the source hierarchy.
+- Every guest has deterministic personal, stay, connection and historical data instead of sharing one static detail record.
+- Notes can be added, connection history can be filtered and searched, Wi-Fi disconnect updates the visible state, print uses the browser print flow, and removal has a confirmation dialog.
+- Stays and Connections use the source toggle and complete table layouts.
+- Turkish and English labels are wired through the existing console language system.
+
+## Verification
+
+- TypeScript validation passed.
+- Visual browser comparison is intentionally left to the user, per request.
+
+final result: blocked pending user visual review
+
+---
+
 # FreeRADIUS Active Sessions Design QA
 
 - Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_e6NWCn/Screenshot 2026-07-24 at 20.48.35.png`
@@ -135,6 +428,33 @@ final result: blocked
 - `@aidahos/web` TypeScript check passed.
 - `git diff --check` passed.
 - Browser/render comparison was intentionally not run at the user's request.
+
+final result: blocked
+
+---
+
+# Guests List Design QA
+
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_Oi7SXL/Screenshot 2026-07-25 at 18.18.52.png`
+- Source implementation: `design/aida/project/assets/screens/guests.js`
+- Implementation route: `/h/[hotelId]/guests`
+- Verification mode: static code and TypeScript checks only
+
+## Implemented
+
+- Guests navigation item in the Connectivity sidebar group and hotel-scoped Guests route.
+- Source-matched hero, CSV/Add Guest actions, four-tab navigation and four KPI cards.
+- Twenty-four deterministic dummy guest profiles with source-matched stay, connection and VIP totals.
+- Stay and connection filter groups, name/room/email/phone search, ten-row pagination and working CSV export.
+- Complete guest table with hotel/room, check-in/out, contact, connection, stay status, VIP tier and action menu columns.
+- Working row actions for email, survey, welcome message, print feedback, disconnect and local list removal.
+- Responsive KPI, toolbar, table and pager behavior using the existing console tokens.
+
+## Verification
+
+- `@aidahos/web` TypeScript check passed.
+- `git diff --check` passed.
+- Browser/render comparison was intentionally left to the user as requested.
 
 final result: blocked
 
@@ -304,3 +624,84 @@ No actionable P0, P1, or P2 mismatches remain.
 - Iteration 2: The normalized reference and implementation comparison found no remaining P0, P1 or P2 differences.
 
 final result: passed
+
+---
+
+# Guest Tickets / Complaints Design QA
+
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_BfqHii/Screenshot 2026-07-25 at 19.13.25.png`
+- Source implementation: `design/aida/project/assets/screens/guests.js`
+- Implementation route: `/h/[hotelId]/guests/tickets`
+
+## Implemented
+
+- Tickets / Complaints is a working Guests subnavigation route.
+- The source KPI row, All/Open/Closed filters, subject search and five-record ticket table are present.
+- Dummy records match the handoff guest order, subjects, dates, priority sequence and open/closed totals.
+- Ticket rows open their corresponding Ticket Detail route.
+- CSV export uses the currently filtered result.
+- Turkish and English labels use the existing console language system.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- Visual browser comparison is intentionally left to the user, per request.
+
+final result: blocked pending user visual review
+
+---
+
+# Guest Ticket Detail Design QA
+
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_5XyeI2/Screenshot 2026-07-25 at 19.19.50.png`
+- Source implementation: `design/aida/project/assets/screens/guests.js`
+- Implementation route: `/h/[hotelId]/guests/tickets/[ticketId]`
+
+## Implemented
+
+- All five dummy ticket records open their own detail route with matching guest, subject, priority, category, assignee and conversation data.
+- The header, ticket status controls, conversation card, Ticket Info card and Related Guest card follow the source hierarchy.
+- Reply submission adds a staff message without leaving the page.
+- Close/Reopen updates the status badge and appends a matching conversation entry.
+- Go to Guest opens the related guest detail route.
+- The layout adapts to single-column tablet and mobile widths.
+- Turkish and English labels use the existing console language system.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- Visual browser comparison is intentionally left to the user, per request.
+
+final result: blocked pending user visual review
+
+---
+
+# Guest Communication Edit Pages Design QA
+
+- Source implementation: `design/aida/project/assets/screens/guest-comms.js`
+- Email edit route: `/h/[hotelId]/guests/emails/[emailId]/edit`
+- Survey send edit route: `/h/[hotelId]/guests/survey-sends/[surveySendId]/edit`
+- Welcome message edit route: `/h/[hotelId]/guests/welcome-messages/[messageId]/edit`
+
+## Implemented
+
+- Scheduled email, survey send and welcome message details now show Edit beside Go to Guest, matching the source behavior.
+- Each Edit action opens a dedicated full-page editor populated from its detail record.
+- Email editing includes subject, message, date and time.
+- Survey send editing includes the read-only survey name plus editable date and time.
+- Welcome message editing includes title, message, date and time.
+- Cancel returns without changing the record; Save persists the edited values locally and returns to the same detail page.
+- Updated content, titles and schedule values are reflected when the detail page reopens.
+- All screens reuse the existing compose-card layout and responsive form behavior.
+- Turkish and English labels use the existing console language system.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- No browser or development server was started, per user request.
+- Visual browser comparison is intentionally left to the user.
+
+final result: blocked pending user visual review

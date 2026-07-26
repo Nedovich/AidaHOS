@@ -70,7 +70,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-type LoginFn = (room: string, dob: string) => Promise<{ ok: boolean; error?: string; username?: string; survey?: SurveyOffer | null }>;
+type LoginFn = (room: string, dob: string) => Promise<{ ok: boolean; error?: string; username?: string; survey?: SurveyOffer | null; showCheckoutSurvey?: boolean }>;
 type StaffLoginFn = (username: string) => Promise<{ ok: boolean; error?: string; username?: string }>;
 interface MikrotikPortal { loginUrl: string; orig: string; mac: string }
 
@@ -162,7 +162,7 @@ function AgreementModal({ onClose, agreement }: { onClose: () => void; agreement
   );
 }
 
-export function Login({ brand, onLogin, loginAction, staffLoginAction, portal, hotelSlug, login }: { brand: Brand; onLogin: (survey?: SurveyOffer | null) => void; loginAction?: LoginFn; staffLoginAction?: StaffLoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; login?: PortalLogin | null }) {
+export function Login({ brand, onLogin, loginAction, staffLoginAction, portal, hotelSlug, login }: { brand: Brand; onLogin: (survey?: SurveyOffer | null, showCheckoutSurvey?: boolean) => void; loginAction?: LoginFn; staffLoginAction?: StaffLoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; login?: PortalLogin | null }) {
   const { t, lang } = useLang();
   // Which sign-in tabs the hotel enabled (Guest is always available + is the real system).
   const enabledModes: LoginMode[] = ['guest'];
@@ -245,7 +245,7 @@ export function Login({ brand, onLogin, loginAction, staffLoginAction, portal, h
             return;
           }
           // Dev path (no MikroTik): no gateway round-trip, so offer the default survey here.
-          onLogin(res.survey ?? null);
+          onLogin(res.survey ?? null, res.showCheckoutSurvey ?? false);
           return;
         }
         setErr(
@@ -541,7 +541,7 @@ export function Events({
   const items = events.filter((ev) => {
     if (filter === 'all') return true;
     if (filter === 'today') return ev.day === 'today';
-    return ev.day !== 'today';
+    return ev.day === 'tomorrow' || ev.day === 'later';
   });
 
   return (
@@ -601,21 +601,103 @@ export function Events({
   );
 }
 
+function EventJoinConfirm({
+  ev,
+  onConfirm,
+  onCancel,
+  loading,
+  done,
+}: {
+  ev: AidaEvent;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading: boolean;
+  done: boolean;
+}) {
+  const { lang } = useLang();
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 70, display: 'grid', placeItems: 'center', padding: 24, background: 'rgba(20,28,30,.5)', backdropFilter: 'blur(3px)' }}>
+      <div className="card" style={{ width: '100%', maxWidth: 360, padding: 24, textAlign: 'center' }}>
+        {done ? (
+          <>
+            <div style={{ width: 56, height: 56, margin: '0 auto 14px', borderRadius: 16, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--success, #22c55e) 14%, var(--surface))', color: 'var(--success, #22c55e)' }}>
+              <Icon name="check" size={26} stroke={2} />
+            </div>
+            <h3 style={{ margin: '0 0 6px', fontFamily: 'var(--font-display)', fontSize: 23, fontWeight: 600, color: 'var(--ink)' }}>
+              {L({ en: 'You\'re registered!', tr: 'Kayıt olundu!', de: 'Angemeldet!', ru: 'Вы зарегистрированы!' }, lang)}
+            </h3>
+            <p className="t-body" style={{ margin: '0 0 20px' }}>
+              {L({ en: 'Your spot is reserved. See you there!', tr: 'Yeriniz ayrıldı. Görüşürüz!', de: 'Ihr Platz ist reserviert. Bis dann!', ru: 'Ваше место зарезервировано. До встречи!' }, lang)}
+            </p>
+            <button onClick={onCancel} style={{ padding: '14px 28px', border: 'none', borderRadius: 'var(--r-md)', background: 'var(--brand-primary)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+              {L({ en: 'Close', tr: 'Kapat', de: 'Schließen', ru: 'Закрыть' }, lang)}
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ width: 56, height: 56, margin: '0 auto 14px', borderRadius: 16, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--brand-secondary) 14%, var(--surface))', color: 'var(--brand-secondary)' }}>
+              <Icon name="calPlus" size={26} stroke={1.8} />
+            </div>
+            <h3 style={{ margin: '0 0 6px', fontFamily: 'var(--font-display)', fontSize: 23, fontWeight: 600, color: 'var(--ink)' }}>
+              {L({ en: 'Join this event?', tr: 'Bu etkinliğe katılmak istiyor musunuz?', de: 'An diesem Event teilnehmen?', ru: 'Участвовать в мероприятии?' }, lang)}
+            </h3>
+            <p className="t-body" style={{ margin: '0 0 20px' }}>
+              {L({ en: 'We\'ll save your spot.', tr: 'Yerinizi ayıracağız.', de: 'Wir reservieren Ihren Platz.', ru: 'Мы сохраним ваше место.' }, lang)}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={onConfirm}
+                disabled={loading}
+                style={{ padding: '14px', border: 'none', borderRadius: 'var(--r-md)', background: 'var(--brand-primary)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.7 : 1 }}
+              >
+                {loading
+                  ? L({ en: 'Registering…', tr: 'Kaydediliyor…', de: 'Wird angemeldet…', ru: 'Регистрация…' }, lang)
+                  : L({ en: 'Yes, join', tr: 'Evet, katıl', de: 'Ja, teilnehmen', ru: 'Да, участвовать' }, lang)}
+              </button>
+              <button onClick={onCancel} disabled={loading} style={{ padding: '12px', border: 0, background: 'none', color: 'var(--ink-2)', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+                {L({ en: 'No thanks', tr: 'Hayır, teşekkürler', de: 'Nein, danke', ru: 'Нет, спасибо' }, lang)}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function EventSheet({
   open,
   onClose,
   ev,
   joined,
   onJoin,
+  onRegister,
 }: {
   open: boolean;
   onClose: () => void;
   ev: AidaEvent | null;
   joined: boolean;
   onJoin: (e: AidaEvent) => void;
+  onRegister?: (eventId: string) => Promise<{ ok: boolean }>;
 }) {
   const { lang, t } = useLang();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [registered, setRegistered] = useState(false);
+
+  useEffect(() => {
+    if (!open) { setConfirmOpen(false); setRegistering(false); setRegistered(false); }
+  }, [open]);
+
   if (!ev) return null;
+
+  const handleRegisterConfirm = async () => {
+    if (!onRegister) return;
+    setRegistering(true);
+    const res = await onRegister(ev.id);
+    setRegistering(false);
+    if (res.ok) setRegistered(true);
+  };
 
   return (
     <Sheet open={open} onClose={onClose}>
@@ -651,7 +733,7 @@ export function EventSheet({
         </div>
 
         <div style={{ padding: '20px 22px 0' }}>
-          <div style={{ display: 'flex', gap: 24, marginBottom: 18, paddingBottom: 18, borderBottom: '1px solid var(--line)' }}>
+          <div style={{ display: 'flex', gap: 24, marginBottom: 18, paddingBottom: 18, borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               <span className="t-caption" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <Icon name="clock" size={13} />
@@ -666,6 +748,15 @@ export function EventSheet({
               </span>
               <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>{L(ev.place, lang)}</span>
             </div>
+            {ev.capacity != null && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <span className="t-caption" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Icon name="user" size={13} />
+                  {L({ en: 'Capacity', tr: 'Kapasite', de: 'Kapazität', ru: 'Вместимость' }, lang)}
+                </span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--ink)' }}>{ev.capacity}</span>
+              </div>
+            )}
           </div>
 
           <div className="t-eyebrow" style={{ marginBottom: 8 }}>{t('ev_about')}</div>
@@ -680,7 +771,29 @@ export function EventSheet({
             >
               {joined ? t('b_added') : t('b_add_cal')}
             </Button>
+            {ev.registrationRequired && (
+              <Button
+                variant="primary"
+                block
+                onClick={() => setConfirmOpen(true)}
+                icon={registered ? 'check' : 'arrowR'}
+                style={{ background: registered ? 'var(--success, #22c55e)' : 'var(--brand-secondary)' }}
+              >
+                {registered
+                  ? L({ en: 'Registered', tr: 'Kayıt olundu', de: 'Angemeldet', ru: 'Зарегистрировано' }, lang)
+                  : L({ en: 'Join', tr: 'Katıl', de: 'Teilnehmen', ru: 'Участвовать' }, lang)}
+              </Button>
+            )}
           </div>
+          {confirmOpen && (
+            <EventJoinConfirm
+              ev={ev}
+              onConfirm={handleRegisterConfirm}
+              onCancel={() => { setConfirmOpen(false); if (registered) onClose(); }}
+              loading={registering}
+              done={registered}
+            />
+          )}
         </div>
       </div>
     </Sheet>

@@ -1241,6 +1241,23 @@
   text-align: center;
 }
 
+.events-recurring-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 4px;
+  padding: 16px 20px;
+  background: var(--surface-2, var(--surface));
+  border: 1px solid var(--border-faint);
+  border-radius: var(--r-md);
+}
+
+.events-recurring-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .events-create-side {
   position: sticky;
   top: var(--sp-5);

@@ -1,8 +1,10 @@
 import type { Loc } from './i18n';
 
-/** Unsplash photo URL helper. */
+/** Photo URL helper. Full URLs (http/https) are returned as-is; short Unsplash IDs get the CDN prefix. */
 export const IMG = (id: string, w = 900) =>
-  `https://images.unsplash.com/photo-${id}?w=${w}&q=75&auto=format&fit=crop`;
+  id.startsWith('http://') || id.startsWith('https://')
+    ? id
+    : `https://images.unsplash.com/photo-${id}?w=${w}&q=75&auto=format&fit=crop`;
 
 export const PH = {
   beach: '1507525428034-b723cf961d3e',
@@ -83,6 +85,8 @@ export const AIDA_SPA: Spa[] = [
 
 export interface AidaEvent {
   id: string; photo: string; ph: string; cat: string; day: string; time: string; title: Loc; place: Loc; desc: Loc;
+  capacity?: number;
+  registrationRequired?: boolean;
 }
 export const AIDA_EVENTS: AidaEvent[] = [
   { id: 'e1', photo: PH.yoga, ph: '--ph-spa', cat: 'wellness', day: 'today', time: '07:30', title: { en: 'Sunrise Yoga by the Sea', tr: 'Deniz Kenarında Gün Doğumu Yogası', de: 'Sonnenaufgangs-Yoga am Meer', ru: 'Йога на рассвете у моря' }, place: { en: 'Beach Deck', tr: 'Plaj Güvertesi', de: 'Strand-Deck', ru: 'Пляжный дек' }, desc: { en: 'Greet the day with a slow vinyasa flow as the sun lifts over the bay. Mats and herbal tea provided.', tr: 'Güneş körfezin üzerinde yükselirken yavaş bir vinyasa akışıyla güne başlayın. Mat ve bitki çayı ikram edilir.', de: 'Begrüßen Sie den Tag mit einem ruhigen Vinyasa-Flow, während die Sonne über der Bucht aufgeht. Matten und Kräutertee inklusive.', ru: 'Встретьте день с медленной виньясой, пока солнце поднимается над заливом. Коврики и травяной чай включены.' } },

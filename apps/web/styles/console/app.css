@@ -180,6 +180,52 @@ a { color: inherit; text-decoration: none; }
 .nav__item.soon { opacity: .55; }
 .nav__item.soon .nav__badge { background: transparent; border: 1px solid var(--border); color: var(--text-3); }
 
+.nav__children {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 0 6px 34px;
+  padding-left: 11px;
+  border-left: 1px solid var(--border-faint);
+}
+
+.nav__child {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 7px 9px;
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.nav__child span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav__child svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  opacity: .85;
+}
+
+.nav__child:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nav__child.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .sidebar__foot {
   flex-shrink: 0; padding: var(--sp-3) var(--sp-4);
   border-top: 1px solid var(--border-faint);

@@ -3,7 +3,7 @@ import { resolveLoc } from '@aidahos/db/portal-config';
 import type { AidaEvent } from './data';
 import type { Loc } from './i18n';
 
-// Map a guest-portal day bucket: today / tomorrow / later — drives the Events filter chips.
+// Map a guest-portal day bucket: today / tomorrow / later / past — drives the Events filter chips.
 function dayBucket(startsAt: Date | null): string {
   if (!startsAt) return 'later';
   const now = new Date();
@@ -11,8 +11,9 @@ function dayBucket(startsAt: Date | null): string {
   const startOfTomorrow = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
   const startOfDayAfter = new Date(startOfTomorrow.getTime() + 24 * 60 * 60 * 1000);
   const t = startsAt.getTime();
-  if (t >= startOfToday.getTime() && t < startOfTomorrow.getTime()) return 'today';
-  if (t >= startOfTomorrow.getTime() && t < startOfDayAfter.getTime()) return 'tomorrow';
+  if (t < startOfToday.getTime()) return 'past';
+  if (t < startOfTomorrow.getTime()) return 'today';
+  if (t < startOfDayAfter.getTime()) return 'tomorrow';
   return 'later';
 }
 
@@ -54,6 +55,8 @@ export function mapGuestEvents(rows: GuestEvent[]): AidaEvent[] {
       title: toGuestLoc(r.name, 'Event'),
       place: toGuestLoc(r.locationName, ''),
       desc: toGuestLoc(r.description, ''),
+      capacity: r.capacity > 0 ? r.capacity : undefined,
+      registrationRequired: r.options?.registrationRequired ?? false,
     } satisfies AidaEvent;
   });
 }

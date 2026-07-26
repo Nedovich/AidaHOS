@@ -114,6 +114,19 @@ export function mikrotikClient(cfg: MikroTikConfig) {
       const r = await request<{ name: string }[]>('GET', '/system/identity');
       return { identity: r[0]?.name ?? 'unknown' };
     },
+
+    /**
+     * Disconnect an active hotspot session by username.
+     * Returns true if a session was found and removed, false if not found.
+     */
+    async disconnectHotspotUser(username: string): Promise<boolean> {
+      type ActiveRow = { '.id': string; user: string };
+      const active = await request<ActiveRow[]>('GET', '/ip/hotspot/active');
+      const match = active.find((r) => r.user === username);
+      if (!match) return false;
+      await request<void>('DELETE', `/ip/hotspot/active/${match['.id']}`);
+      return true;
+    },
   };
 }
 

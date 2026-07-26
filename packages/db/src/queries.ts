@@ -1,9 +1,10 @@
-import { and, asc, desc, eq, gte, notInArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNotNull, isNull, lte, notInArray, sql } from 'drizzle-orm';
 import { db, withTenant } from './client';
 import {
   auditLogs,
   eventCategories,
   eventLocations,
+  eventRegistrations,
   events,
   guestStays,
   hotelGroups,
@@ -534,6 +535,7 @@ export async function upsertGuestStay(input: {
   roomType?: string | null;
   currency?: string | null;
   reservationRef?: string | null;
+  surveyTriggerAt?: Date | null;
 }) {
   await withTenant(SUPER, (tx) =>
     tx
@@ -554,6 +556,7 @@ export async function upsertGuestStay(input: {
         roomType: input.roomType ?? null,
         currency: input.currency ?? null,
         reservationRef: input.reservationRef ?? null,
+        surveyTriggerAt: input.surveyTriggerAt ?? null,
       })
       .onConflictDoUpdate({
         target: [guestStays.hotelId, guestStays.roomNo, guestStays.birthDate],
@@ -570,6 +573,8 @@ export async function upsertGuestStay(input: {
           currency: input.currency ?? null,
           reservationRef: input.reservationRef ?? null,
           lastVerifiedAt: new Date(),
+          // surveyTriggerAt is intentionally NOT updated on re-login so a manual
+          // override from the console is not silently overwritten.
         },
       }),
   );
@@ -596,6 +601,168 @@ export async function upsertHotelSimulation(input: {
       target: [hotelSimulation.hotelId, hotelSimulation.roomNo],
       set: { birthDate: input.birthDate, guestName: input.guestName ?? null, checkOut: input.checkOut ?? null, active: true },
     });
+}
+
+/* ============================================================
+   Guest Stays — hotel-scoped CRM queries
+   ============================================================ */
+
+export interface GuestStayRow {
+  id: string;
+  hotelId: string;
+  roomNo: string;
+  firstName: string | null;
+  lastName: string | null;
+  checkIn: Date | null;
+  checkOut: Date | null;
+  phone: string | null;
+  email: string | null;
+  country: string | null;
+  roomType: string | null;
+  agency: string | null;
+  currency: string | null;
+  birthDate: string;
+  surveyTriggerAt: Date | null;
+  surveyShownAt: Date | null;
+  createdAt: Date;
+  lastVerifiedAt: Date;
+}
+
+const GUEST_STAY_COLS = {
+  id: guestStays.id,
+  hotelId: guestStays.hotelId,
+  roomNo: guestStays.roomNo,
+  firstName: guestStays.firstName,
+  lastName: guestStays.lastName,
+  checkIn: guestStays.checkIn,
+  checkOut: guestStays.checkOut,
+  phone: guestStays.phone,
+  email: guestStays.email,
+  country: guestStays.country,
+  roomType: guestStays.roomType,
+  agency: guestStays.agency,
+  currency: guestStays.currency,
+  birthDate: guestStays.birthDate,
+  surveyTriggerAt: guestStays.surveyTriggerAt,
+  surveyShownAt: guestStays.surveyShownAt,
+  createdAt: guestStays.createdAt,
+  lastVerifiedAt: guestStays.lastVerifiedAt,
+} as const;
+
+/** All guest stays for a hotel, newest first. */
+export async function listGuestStays(hotelId: string): Promise<GuestStayRow[]> {
+  return withTenant(SUPER, (tx) =>
+    tx.select(GUEST_STAY_COLS).from(guestStays)
+      .where(eq(guestStays.hotelId, hotelId))
+      .orderBy(desc(guestStays.createdAt)),
+  );
+}
+
+/** Single guest stay by ID. */
+export async function getGuestStayById(id: string): Promise<GuestStayRow | null> {
+  const rows = await withTenant(SUPER, (tx) =>
+    tx.select(GUEST_STAY_COLS).from(guestStays)
+      .where(eq(guestStays.id, id))
+      .limit(1),
+  );
+  return rows[0] ?? null;
+}
+
+/** Fetch a guest stay by hotel + room + birth-date (the natural key used at login). */
+export async function getGuestStayByKey(hotelId: string, roomNo: string, birthDate: string): Promise<GuestStayRow | null> {
+  const rows = await withTenant(SUPER, (tx) =>
+    tx.select(GUEST_STAY_COLS).from(guestStays)
+      .where(and(eq(guestStays.hotelId, hotelId), eq(guestStays.roomNo, roomNo), eq(guestStays.birthDate, birthDate)))
+      .limit(1),
+  );
+  return rows[0] ?? null;
+}
+
+/** Set (or clear) the survey trigger timestamp for a guest stay. */
+export async function setGuestSurveyTrigger(id: string, triggerAt: Date | null): Promise<void> {
+  await withTenant(SUPER, (tx) =>
+    tx.update(guestStays)
+      .set({ surveyTriggerAt: triggerAt })
+      .where(eq(guestStays.id, id)),
+  );
+}
+
+/** Mark the checkout survey as shown for a guest stay. */
+export async function markSurveyShown(id: string): Promise<void> {
+  await withTenant(SUPER, (tx) =>
+    tx.update(guestStays)
+      .set({ surveyShownAt: new Date() })
+      .where(eq(guestStays.id, id)),
+  );
+}
+
+/**
+ * Guest stays that have a survey_trigger_at set — the "Survey Sends" list.
+ * Returns newest trigger-at first.
+ */
+export async function listSurveySends(hotelId: string): Promise<GuestStayRow[]> {
+  return withTenant(SUPER, (tx) =>
+    tx.select(GUEST_STAY_COLS).from(guestStays)
+      .where(and(eq(guestStays.hotelId, hotelId), isNotNull(guestStays.surveyTriggerAt)))
+      .orderBy(desc(guestStays.surveyTriggerAt)),
+  );
+}
+
+/**
+ * Guest stays whose survey trigger time has arrived but survey hasn't been shown yet.
+ * Joined with hotel so the caller has MikroTik credentials + slug.
+ */
+export async function listDueSurveyDisconnects(): Promise<Array<GuestStayRow & {
+  hotelSlug: string;
+  mikrotikIp: string | null;
+  mikrotikApiUser: string | null;
+  mikrotikApiPassword: string | null;
+  mikrotikApiPort: number | null;
+}>> {
+  return withTenant(SUPER, (tx) =>
+    tx.select({
+      ...GUEST_STAY_COLS,
+      hotelSlug: hotels.slug,
+      mikrotikIp: hotels.mikrotikIp,
+      mikrotikApiUser: hotels.mikrotikApiUser,
+      mikrotikApiPassword: hotels.mikrotikApiPassword,
+      mikrotikApiPort: hotels.mikrotikApiPort,
+    })
+    .from(guestStays)
+    .innerJoin(hotels, eq(guestStays.hotelId, hotels.id))
+    .where(and(
+      isNotNull(guestStays.surveyTriggerAt),
+      isNull(guestStays.surveyShownAt),
+      lte(guestStays.surveyTriggerAt, new Date()),
+    )),
+  ) as Promise<Array<GuestStayRow & {
+    hotelSlug: string;
+    mikrotikIp: string | null;
+    mikrotikApiUser: string | null;
+    mikrotikApiPassword: string | null;
+    mikrotikApiPort: number | null;
+  }>>;
+}
+
+/** The checkout survey (isCheckout=true) for the hotel's group, if any. */
+export async function getCheckoutSurveyForHotel(hotelGroupId: string): Promise<{ id: string; name: string } | null> {
+  const rows = await withTenant(SUPER, (tx) =>
+    tx.select({ id: surveys.id, name: surveys.name })
+      .from(surveys)
+      .where(and(eq(surveys.hotelGroupId, hotelGroupId), eq(surveys.isCheckout, true)))
+      .limit(1),
+  );
+  return rows[0] ?? null;
+}
+
+/** Set the checkout survey for a hotel group (unsets siblings first). */
+export async function setCheckoutSurvey(hotelGroupId: string, surveyId: string, isCheckout: boolean): Promise<void> {
+  await withTenant(SUPER, async (tx) => {
+    if (isCheckout) {
+      await tx.update(surveys).set({ isCheckout: false }).where(eq(surveys.hotelGroupId, hotelGroupId));
+    }
+    await tx.update(surveys).set({ isCheckout }).where(eq(surveys.id, surveyId));
+  });
 }
 
 /** Simulated rooms for a hotel (for an admin/dev management view). DEV only. */
@@ -640,8 +807,8 @@ function slugify(s: string): string {
 }
 
 export async function listSurveys(hotelGroupId: string) {
-  return withTenant(SUPER, (tx) =>
-    tx
+  return withTenant(SUPER, async (tx) => {
+    const rows = await tx
       .select({
         id: surveys.id,
         name: surveys.name,
@@ -650,14 +817,29 @@ export async function listSurveys(hotelGroupId: string) {
         status: surveys.status,
         defaultLocale: surveys.defaultLocale,
         isDefault: surveys.isDefault,
+        isCheckout: surveys.isCheckout,
         createdAt: surveys.createdAt,
         updatedAt: surveys.updatedAt,
-        responseCount: sql<number>`(select count(*)::int from ${surveyResponses} where ${surveyResponses.surveyId} = ${surveys.id})`,
+        responseCount: sql<number>`cast(count(${surveyResponses.id}) as int)`,
       })
       .from(surveys)
+      .leftJoin(surveyResponses, eq(surveyResponses.surveyId, surveys.id))
       .where(eq(surveys.hotelGroupId, hotelGroupId))
-      .orderBy(desc(surveys.updatedAt)),
-  );
+      .groupBy(
+        surveys.id,
+        surveys.name,
+        surveys.description,
+        surveys.slug,
+        surveys.status,
+        surveys.defaultLocale,
+        surveys.isDefault,
+        surveys.isCheckout,
+        surveys.createdAt,
+        surveys.updatedAt,
+      )
+      .orderBy(desc(surveys.updatedAt));
+    return rows;
+  });
 }
 
 export async function getSurveyById(id: string) {
@@ -1058,6 +1240,7 @@ export interface GuestEvent {
   endsAt: Date | null;
   capacity: number;
   status: EventStatus;
+  options: { registrationRequired?: boolean; paid?: boolean; maxPerBooking?: number; recurring?: boolean };
   categoryName: Loc | null;
   categoryColor: string | null;
   locationName: Loc | null;
@@ -1081,6 +1264,7 @@ export async function listGuestEvents(hotelId: string): Promise<GuestEvent[]> {
         endsAt: events.endsAt,
         capacity: events.capacity,
         status: events.status,
+        options: events.options,
         categoryName: eventCategories.name,
         categoryColor: eventCategories.color,
         locationName: eventLocations.name,
@@ -1105,6 +1289,7 @@ export async function listGuestEvents(hotelId: string): Promise<GuestEvent[]> {
       endsAt: r.endsAt,
       capacity: r.capacity,
       status: r.status as EventStatus,
+      options: (r.options ?? {}) as GuestEvent['options'],
       categoryName: (r.categoryName ?? null) as Loc | null,
       categoryColor: r.categoryColor,
       locationName: (r.locationName ?? null) as Loc | null,
@@ -1295,4 +1480,93 @@ export async function upsertStaffAccount(input: {
 
 export async function deleteStaffAccount(radiusUsername: string): Promise<void> {
   await db.delete(staffAccounts).where(eq(staffAccounts.radiusUsername, radiusUsername));
+}
+
+export interface EventRegistration {
+  id: string;
+  eventId: string;
+  roomNo: string | null;
+  guestName: string | null;
+  phone: string | null;
+  email: string | null;
+  status: string;
+  createdAt: Date;
+}
+
+export async function createEventRegistration(input: {
+  eventId: string;
+  hotelId: string;
+  hotelGroupId: string;
+  roomNo: string | null;
+  guestName: string | null;
+  phone: string | null;
+  email: string | null;
+}): Promise<{ ok: boolean; alreadyRegistered?: boolean }> {
+  try {
+    await db.insert(eventRegistrations).values({
+      eventId: input.eventId,
+      hotelId: input.hotelId,
+      hotelGroupId: input.hotelGroupId,
+      roomNo: input.roomNo,
+      guestName: input.guestName,
+      phone: input.phone,
+      email: input.email,
+      status: 'pending',
+      createdAt: new Date(),
+    }).onConflictDoNothing();
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function listEventRegistrations(eventId: string): Promise<EventRegistration[]> {
+  const rows = await db
+    .select()
+    .from(eventRegistrations)
+    .where(eq(eventRegistrations.eventId, eventId))
+    .orderBy(desc(eventRegistrations.createdAt));
+  return rows.map((r) => ({
+    id: r.id,
+    eventId: r.eventId,
+    roomNo: r.roomNo,
+    guestName: r.guestName,
+    phone: r.phone,
+    email: r.email,
+    status: r.status,
+    createdAt: r.createdAt,
+  }));
+}
+
+export async function listAllHotelEventRegistrations(hotelId: string): Promise<(EventRegistration & { eventName: unknown })[]> {
+  const rows = await db
+    .select({
+      id: eventRegistrations.id,
+      eventId: eventRegistrations.eventId,
+      roomNo: eventRegistrations.roomNo,
+      guestName: eventRegistrations.guestName,
+      phone: eventRegistrations.phone,
+      email: eventRegistrations.email,
+      status: eventRegistrations.status,
+      createdAt: eventRegistrations.createdAt,
+      eventName: events.name,
+    })
+    .from(eventRegistrations)
+    .innerJoin(events, eq(events.id, eventRegistrations.eventId))
+    .where(eq(eventRegistrations.hotelId, hotelId))
+    .orderBy(desc(eventRegistrations.createdAt));
+  return rows;
+}
+
+/** Returns a map of eventId → registration count for all events of a hotel. */
+export async function getEventRegistrationCounts(hotelId: string): Promise<Map<string, number>> {
+  const rows = await db
+    .select({
+      eventId: eventRegistrations.eventId,
+      count: sql<number>`cast(count(*) as int)`,
+    })
+    .from(eventRegistrations)
+    .where(eq(eventRegistrations.hotelId, hotelId))
+    .groupBy(eventRegistrations.eventId);
+  return new Map(rows.map((r) => [r.eventId, r.count]));
 }
