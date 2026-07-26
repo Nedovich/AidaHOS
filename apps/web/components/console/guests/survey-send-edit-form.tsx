@@ -26,7 +26,9 @@ export function SurveySendEditForm({
   const detailHref = `/h/${hotelId}/guests/survey-sends/${surveySendId}`;
 
   const initial = new Date(triggerAt);
-  const toDateInput = (d: Date) => d.toISOString().slice(0, 10);
+  // Use local time for display — the user enters times in their timezone (TR = UTC+3).
+  const toDateInput = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const toTimeInput = (d: Date) =>
     `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
