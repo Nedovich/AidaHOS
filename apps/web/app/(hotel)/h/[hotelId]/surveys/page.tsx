@@ -40,7 +40,7 @@ export default async function SurveysOverviewPage({ params }: { params: Promise<
     <>
       <div className="page-hero">
         <div>
-          <h1 className="page-hero__h">{L(['Anketler', 'Surveys'], lang)}</h1>
+          <h1 className="page-hero__h">{L(['Anketler & Gönderimler', 'Surveys & Sends'], lang)}</h1>
           <p className="page-hero__sub">{L(['Misafir geri bildirimi, NPS ve yapay zeka destekli duygu analizi.', 'Guest feedback, NPS and AI-powered sentiment analysis.'], lang)}</p>
         </div>
         <div className="page-hero__actions">

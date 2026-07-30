@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import {
+  Bell,
+  CalendarDays,
   Check,
   ChevronLeft,
   ClipboardList,
@@ -16,9 +18,10 @@ import {
 } from 'lucide-react';
 import { L, type Lang } from '@/lib/i18n';
 
-export type SurveySendStatus = 'scheduled' | 'sent' | 'completed';
+export type PopupSendStatus = 'scheduled' | 'sent' | 'completed';
+export type PopupType = 'survey' | 'event' | 'announcement';
 
-export interface SerializedSurveySendDetail {
+export interface SerializedPopupSendDetail {
   id: string;
   guest: {
     name: string;
@@ -29,13 +32,14 @@ export interface SerializedSurveySendDetail {
     email: string | null;
     phone: string | null;
   };
-  surveyName: string | null;
+  popupType: PopupType;
+  popupTitle: string | null;
   triggerAt: string;
   shownAt: string | null;
-  status: SurveySendStatus;
+  status: PopupSendStatus;
 }
 
-function StatusBadge({ status, lang }: { status: SurveySendStatus; lang: Lang }) {
+function StatusBadge({ status, lang }: { status: PopupSendStatus; lang: Lang }) {
   const Icon = status === 'scheduled' ? Clock3 : status === 'completed' ? Check : Send;
   const label =
     status === 'scheduled' ? L(['Zamanlandı', 'Scheduled'], lang) :
@@ -46,6 +50,18 @@ function StatusBadge({ status, lang }: { status: SurveySendStatus; lang: Lang })
       <Icon size={13} />{label}
     </span>
   );
+}
+
+function popupTypeIcon(type: PopupType) {
+  return type === 'event' ? CalendarDays : type === 'announcement' ? Bell : ClipboardList;
+}
+
+function popupTypeLabel(type: PopupType, lang: Lang): string {
+  return type === 'event'
+    ? L(['Etkinlik', 'Event'], lang)
+    : type === 'announcement'
+      ? L(['Duyuru', 'Announcement'], lang)
+      : L(['Anket', 'Survey'], lang);
 }
 
 function InfoRow({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
@@ -64,17 +80,20 @@ function fmtDt(iso: string): string {
   return `${date} · ${time}`;
 }
 
-export function GuestSurveySendDetailClient({
+export function GuestPopupSendDetailClient({
   detail: initial,
   hotelId,
   lang,
+  basePath,
   onMarkShown,
 }: {
-  detail: SerializedSurveySendDetail;
+  detail: SerializedPopupSendDetail;
   hotelId: string;
   lang: Lang;
+  basePath?: string;
   onMarkShown?: (id: string) => Promise<{ ok: boolean }>;
 }) {
+  const listHref = basePath ?? `/h/${hotelId}/surveys/sends`;
   const [detail, setDetail] = useState(initial);
   const [notice, setNotice] = useState('');
   const [, startTransition] = useTransition();
@@ -86,12 +105,13 @@ export function GuestSurveySendDetailClient({
       if (res.ok) {
         const now = new Date().toISOString();
         setDetail((d) => ({ ...d, shownAt: now, status: 'sent' }));
-        setNotice(L(['Anket gönderildi olarak işaretlendi.', 'Survey marked as sent.'], lang));
+        setNotice(L(['Popup gönderildi olarak işaretlendi.', 'Popup marked as sent.'], lang));
       }
     });
   }
 
-  const surveyLabel = detail.surveyName ?? L(['Checkout Anketi', 'Checkout Survey'], lang);
+  const popupLabel = detail.popupTitle ?? popupTypeLabel(detail.popupType, lang);
+  const PopupIcon = popupTypeIcon(detail.popupType);
 
   return (
     <div className="guest-email-detail-page guest-survey-detail-page">
@@ -99,28 +119,28 @@ export function GuestSurveySendDetailClient({
       <div className="guest-survey-detail-nav">
         <Link
           className="guest-email-detail-back"
-          href={`/h/${hotelId}/guests/survey-sends`}
+          href={listHref}
           aria-label={L(['Geri', 'Back'], lang)}
         >
           <ChevronLeft />
         </Link>
         <div className="guest-detail-breadcrumb">
-          <Link href={`/h/${hotelId}/guests/survey-sends`}>
-            {L(['Anket Gönderimleri', 'Survey Sends'], lang)}
+          <Link href={listHref}>
+            {L(['Popup Gönderimleri', 'Popup Sends'], lang)}
           </Link>
           <span>›</span>
-          <strong>{surveyLabel}</strong>
+          <strong>{popupLabel}</strong>
         </div>
       </div>
 
       {/* Header */}
       <header className="guest-email-detail-head guest-survey-detail-head">
         <div className={`guest-survey-detail-icon status-${detail.status}`}>
-          <ClipboardList />
+          <PopupIcon />
         </div>
         <div className="guest-email-detail-identity">
           <div className="guest-email-detail-titleline">
-            <h1>{surveyLabel}</h1>
+            <h1>{popupLabel}</h1>
             <StatusBadge status={detail.status} lang={lang} />
           </div>
           <p>
@@ -131,9 +151,11 @@ export function GuestSurveySendDetailClient({
           <Link className="btn btn--ghost" href={`/h/${hotelId}/guests/${detail.id}`}>
             <ExternalLink />{L(['Misafire Git', 'Go to Guest'], lang)}
           </Link>
-          <Link className="btn btn--ghost" href={`/h/${hotelId}/guests/survey-sends/${detail.id}/edit`}>
-            <Pencil />{L(['Düzenle', 'Edit'], lang)}
-          </Link>
+          {detail.status === 'scheduled' && (
+            <Link className="btn btn--ghost" href={`${listHref}/${detail.id}/edit`}>
+              <Pencil />{L(['Düzenle', 'Edit'], lang)}
+            </Link>
+          )}
           {detail.status === 'scheduled' && onMarkShown && (
             <button className="btn btn--primary" type="button" onClick={handleMarkShown}>
               <Send />{L(['Şimdi Gönder', 'Send Now'], lang)}
@@ -159,11 +181,11 @@ export function GuestSurveySendDetailClient({
         <div className="guest-survey-detail-main">
           <section className="card">
             <div className="card__head">
-              <h2 className="card__title">{L(['Anket Bilgileri', 'Survey Details'], lang)}</h2>
+              <h2 className="card__title">{L(['Popup Bilgileri', 'Popup Details'], lang)}</h2>
             </div>
             <div className="card__body">
-              <InfoRow icon={<ClipboardList />} label={L(['Anket', 'Survey'], lang)}>
-                {surveyLabel}
+              <InfoRow icon={<PopupIcon />} label={popupTypeLabel(detail.popupType, lang)}>
+                {popupLabel}
               </InfoRow>
               <InfoRow icon={<Send />} label={L(['Gönderim', 'Sent'], lang)}>
                 <span className="mono">{fmtDt(detail.triggerAt)}</span>
@@ -180,8 +202,8 @@ export function GuestSurveySendDetailClient({
             <div className="card__body">
               <p>
                 {detail.status === 'scheduled'
-                  ? L(['Bu anket henüz gönderilmedi. Planlanan zamanda otomatik olarak gönderilecek.', "This survey hasn't been sent yet. It will be sent automatically at the scheduled time."], lang)
-                  : L(['Anket gönderildi, misafirin yanıtı bekleniyor.', "Survey sent, awaiting the guest's response."], lang)}
+                  ? L(['Bu popup henüz gönderilmedi. Planlanan zamanda otomatik olarak gönderilecek.', "This popup hasn't been sent yet. It will be sent automatically at the scheduled time."], lang)
+                  : L(['Popup gönderildi, misafirin görmesi bekleniyor.', "Popup sent, awaiting the guest to see it."], lang)}
               </p>
             </div>
           </section>
@@ -227,7 +249,7 @@ export function GuestSurveySendDetailClient({
                   <div className="guest-email-timeline__item is-complete">
                     <span className="guest-email-timeline__icon"><Check /></span>
                     <div>
-                      <strong>{L(['Anket gösterildi', 'Survey shown'], lang)}</strong>
+                      <strong>{L(['Popup gösterildi', 'Popup shown'], lang)}</strong>
                       <small>{fmtDt(detail.shownAt)}</small>
                     </div>
                   </div>

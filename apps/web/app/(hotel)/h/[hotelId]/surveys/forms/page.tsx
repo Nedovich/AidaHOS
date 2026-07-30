@@ -9,7 +9,7 @@ import {
   SurveysListClient,
   type SerializedSurvey,
 } from '@/components/console/surveys/surveys-list-client';
-import { setCheckoutSurveyAction, setDefaultSurveyAction } from '../actions';
+import { setCheckoutSurveyAction } from '../actions';
 
 const PALETTE = ['var(--accent)', 'var(--purple)', 'var(--success)', 'var(--info)', 'var(--warning)'];
 function colorFor(seed: string): string {
@@ -63,10 +63,6 @@ export default async function SurveyFormsPage({ params }: { params: Promise<{ ho
         lang={lang}
         hotelId={hotelId}
         base={base}
-        onToggleDefault={async (surveyId, makeDefault) => {
-          'use server';
-          await setDefaultSurveyAction(hotelId, surveyId, makeDefault);
-        }}
         onToggleCheckout={async (surveyId, makeCheckout) => {
           'use server';
           await setCheckoutSurveyAction(hotelId, surveyId, makeCheckout);

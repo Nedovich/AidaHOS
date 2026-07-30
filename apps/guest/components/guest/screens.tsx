@@ -10,6 +10,7 @@ import {
 import type { SurveyOffer } from '@/lib/survey-types';
 import { Button, Icon, LangSwitch, Ph, Sheet, StatusBar } from './ui';
 import { DiningCard, EventCard, ExperienceCard, Rail, RowHead, SpaCard, TonightHero, WeatherLine } from './cards';
+import type { DuePopup } from './guest-app';
 
 /* ---------------- Splash ---------------- */
 export function Splash({ brand, onEnter, splash, defaultLang, enabledLangs }: {
@@ -70,7 +71,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-type LoginFn = (room: string, dob: string) => Promise<{ ok: boolean; error?: string; username?: string; survey?: SurveyOffer | null; showCheckoutSurvey?: boolean }>;
+type LoginFn = (room: string, dob: string) => Promise<{ ok: boolean; error?: string; username?: string; survey?: SurveyOffer | null; duePopups?: DuePopup[] }>;
 type StaffLoginFn = (username: string) => Promise<{ ok: boolean; error?: string; username?: string }>;
 interface MikrotikPortal { loginUrl: string; orig: string; mac: string }
 
@@ -162,7 +163,7 @@ function AgreementModal({ onClose, agreement }: { onClose: () => void; agreement
   );
 }
 
-export function Login({ brand, onLogin, loginAction, staffLoginAction, portal, hotelSlug, login }: { brand: Brand; onLogin: (survey?: SurveyOffer | null, showCheckoutSurvey?: boolean) => void; loginAction?: LoginFn; staffLoginAction?: StaffLoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; login?: PortalLogin | null }) {
+export function Login({ brand, onLogin, loginAction, staffLoginAction, portal, hotelSlug, login }: { brand: Brand; onLogin: (survey?: SurveyOffer | null, duePopups?: DuePopup[]) => void; loginAction?: LoginFn; staffLoginAction?: StaffLoginFn; portal?: MikrotikPortal | null; hotelSlug?: string; login?: PortalLogin | null }) {
   const { t, lang } = useLang();
   // Which sign-in tabs the hotel enabled (Guest is always available + is the real system).
   const enabledModes: LoginMode[] = ['guest'];
@@ -245,7 +246,7 @@ export function Login({ brand, onLogin, loginAction, staffLoginAction, portal, h
             return;
           }
           // Dev path (no MikroTik): no gateway round-trip, so offer the default survey here.
-          onLogin(res.survey ?? null, res.showCheckoutSurvey ?? false);
+          onLogin(res.survey ?? null, res.duePopups ?? []);
           return;
         }
         setErr(

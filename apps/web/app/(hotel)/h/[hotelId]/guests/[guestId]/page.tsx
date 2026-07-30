@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
-import { getHotelById, getGuestStayById, isRadiusConfigured, listUserSessions } from '@aidahos/db';
+import { getHotelById, getGuestStayById, getCheckoutSurveyForHotel, isRadiusConfigured, listPopupSendsForStay, listUserSessions } from '@aidahos/db';
 import { getLang } from '@/lib/i18n-server';
 import { GuestDetailClient, type SerializedGuestDetail, type SerializedSession } from '@/components/console/guests/guest-detail-client';
-import { setGuestSurveyTriggerAction } from './actions';
+import { setGuestPopupSendAction } from './actions';
 
 function fmtDate(d: Date | null): string {
   if (!d) return '—';
@@ -55,6 +55,16 @@ export default async function GuestDetailPage({
   ]);
 
   if (!stay || !hotel) notFound();
+
+  const [surveySends, checkoutSurvey] = await Promise.all([
+    listPopupSendsForStay(stay.id),
+    getCheckoutSurveyForHotel(hotel.hotelGroupId),
+  ]);
+
+  // Most recent send for the KPI card (newest triggerAt).
+  const latestSend = surveySends.length > 0
+    ? surveySends.reduce((a, b) => a.triggerAt > b.triggerAt ? a : b)
+    : null;
 
   // RADIUS bağlantı geçmişi
   const username = `${hotel.slug}-${stay.roomNo}`;
@@ -121,8 +131,10 @@ export default async function GuestDetailPage({
     dataToday,
     activeDevices,
     sessions,
-    surveyTriggerAt: stay.surveyTriggerAt ? stay.surveyTriggerAt.toISOString() : null,
-    surveyShownAt: stay.surveyShownAt ? stay.surveyShownAt.toISOString() : null,
+    // KPI card shows the latest popup send from guest_popup_sends table.
+    surveyTriggerAt: latestSend ? latestSend.triggerAt.toISOString() : null,
+    surveyShownAt: latestSend ? (latestSend.shownAt?.toISOString() ?? null) : null,
+    latestSurveySendId: latestSend?.id ?? null,
   };
 
   return (
@@ -130,9 +142,9 @@ export default async function GuestDetailPage({
       guest={guest}
       hotelId={hotelId}
       lang={lang}
-      onSetSurveyTrigger={async (guestId, triggerAt) => {
+      onSetSurveyTrigger={async (guestStayId, triggerAt) => {
         'use server';
-        return setGuestSurveyTriggerAction(hotelId, guestId, triggerAt);
+        return setGuestPopupSendAction(hotelId, guestStayId, triggerAt, hotel.hotelGroupId, checkoutSurvey?.id ?? null, checkoutSurvey?.name ?? null);
       }}
     />
   );

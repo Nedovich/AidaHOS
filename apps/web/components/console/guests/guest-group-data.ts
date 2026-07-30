@@ -1,8 +1,4 @@
-import {
-  INITIAL_GUESTS,
-  type Guest,
-  type LocalizedText,
-} from './guest-data';
+import { INITIAL_GUESTS, type Guest, type LocalizedText } from './guest-data';
 
 export interface GuestGroupRecord {
   id: number;
@@ -14,19 +10,19 @@ export interface GuestGroupRecord {
 export const GUEST_GROUP_RECORDS: GuestGroupRecord[] = [
   {
     id: 1,
-    name: ['VIP Misafirler', 'VIP Guests'],
+    name: ['VIP Misafirler', 'VIP Misafirler'],
     color: '#B8740A',
     guestIds: [1, 5, 8, 14, 16, 22],
   },
   {
     id: 2,
-    name: ['Balayı Çiftleri', 'Honeymoon Couples'],
+    name: ['Balayı Çiftleri', 'Balayı Çiftleri'],
     color: '#7C5CE0',
     guestIds: [3, 9],
   },
   {
     id: 3,
-    name: ['Tekrar Misafirler', 'Repeat Guests'],
+    name: ['Tekrar Misafirler', 'Tekrar Misafirler'],
     color: '#0E7490',
     guestIds: [0, 2, 6, 13, 20],
   },

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, isNotNull, isNull, lte, notInArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, isNotNull, isNull, lte, notInArray, sql } from 'drizzle-orm';
 import { db, withTenant } from './client';
 import {
   auditLogs,
@@ -6,17 +6,19 @@ import {
   eventLocations,
   eventRegistrations,
   events,
+  guestPopupSends,
   guestStays,
   hotelGroups,
   hotels,
   hotelSimulation,
   memberships,
+  popupAutomations,
   staffAccounts,
   surveyResponses,
   surveys,
   users,
 } from './schema';
-import { defaultPortalConfig, parsePortalStore, withDefaults, type Loc, type PortalConfig } from './portal-config';
+import { defaultPortalConfig, parsePortalStore, withDefaults, type Loc, type PopupContentMap, type PortalConfig } from './portal-config';
 
 type EventStatus = 'draft' | 'scheduled' | 'live' | 'full' | 'completed' | 'cancelled';
 export interface EventOptions { registrationRequired?: boolean; paid?: boolean; maxPerBooking?: number; recurring?: boolean }
@@ -679,10 +681,10 @@ export async function getGuestStayByKey(hotelId: string, roomNo: string, birthDa
 }
 
 /** Set (or clear) the survey trigger timestamp for a guest stay. */
-export async function setGuestSurveyTrigger(id: string, triggerAt: Date | null): Promise<void> {
+export async function setGuestSurveyTrigger(id: string, triggerAt: Date | null, resetShown = false): Promise<void> {
   await withTenant(SUPER, (tx) =>
     tx.update(guestStays)
-      .set({ surveyTriggerAt: triggerAt })
+      .set({ surveyTriggerAt: triggerAt, ...(resetShown ? { surveyShownAt: null } : {}) })
       .where(eq(guestStays.id, id)),
   );
 }
@@ -1569,4 +1571,338 @@ export async function getEventRegistrationCounts(hotelId: string): Promise<Map<s
     .where(eq(eventRegistrations.hotelId, hotelId))
     .groupBy(eventRegistrations.eventId);
   return new Map(rows.map((r) => [r.eventId, r.count]));
+}
+
+/* ============================================================
+   Guest Popup Sends — per-send table (survey / event / announcement popups).
+   Replaces guest_stays.surveyTriggerAt for new sends.
+   ============================================================ */
+
+export interface GuestPopupSendRow {
+  id: string;
+  hotelId: string;
+  hotelGroupId: string;
+  guestStayId: string;
+  popupType: 'survey' | 'event' | 'announcement';
+  surveyId: string | null;
+  eventId: string | null;
+  content: PopupContentMap | null;
+  triggerAt: Date;
+  shownAt: Date | null;
+  createdAt: Date;
+  // joined from guest_stays
+  firstName: string | null;
+  lastName: string | null;
+  roomNo: string;
+  email: string | null;
+  phone: string | null;
+  checkOut: Date | null;
+}
+
+const POPUP_SEND_COLS = {
+  id: guestPopupSends.id,
+  hotelId: guestPopupSends.hotelId,
+  hotelGroupId: guestPopupSends.hotelGroupId,
+  guestStayId: guestPopupSends.guestStayId,
+  popupType: guestPopupSends.popupType,
+  surveyId: guestPopupSends.surveyId,
+  eventId: guestPopupSends.eventId,
+  content: guestPopupSends.content,
+  triggerAt: guestPopupSends.triggerAt,
+  shownAt: guestPopupSends.shownAt,
+  createdAt: guestPopupSends.createdAt,
+};
+
+const POPUP_SEND_WITH_GUEST_COLS = {
+  ...POPUP_SEND_COLS,
+  firstName: guestStays.firstName,
+  lastName: guestStays.lastName,
+  roomNo: guestStays.roomNo,
+  email: guestStays.email,
+  phone: guestStays.phone,
+  checkOut: guestStays.checkOut,
+};
+
+/** List all popup sends for a hotel, newest trigger first, with guest info. */
+export async function listGuestPopupSends(hotelId: string): Promise<GuestPopupSendRow[]> {
+  return withTenant(SUPER, (tx) =>
+    tx.select(POPUP_SEND_WITH_GUEST_COLS)
+      .from(guestPopupSends)
+      .innerJoin(guestStays, eq(guestPopupSends.guestStayId, guestStays.id))
+      .where(eq(guestPopupSends.hotelId, hotelId))
+      .orderBy(desc(guestPopupSends.triggerAt)),
+  ) as Promise<GuestPopupSendRow[]>;
+}
+
+/** Get a single popup send by id, with guest info. */
+export async function getGuestPopupSendById(id: string): Promise<GuestPopupSendRow | null> {
+  const rows = await withTenant(SUPER, (tx) =>
+    tx.select(POPUP_SEND_WITH_GUEST_COLS)
+      .from(guestPopupSends)
+      .innerJoin(guestStays, eq(guestPopupSends.guestStayId, guestStays.id))
+      .where(eq(guestPopupSends.id, id))
+      .limit(1),
+  );
+  return (rows[0] ?? null) as GuestPopupSendRow | null;
+}
+
+/** Create a new popup send record. */
+export async function createGuestPopupSend(input: {
+  hotelId: string;
+  hotelGroupId: string;
+  guestStayId: string;
+  popupType: 'survey' | 'event' | 'announcement';
+  surveyId: string | null;
+  eventId: string | null;
+  content: PopupContentMap;
+  triggerAt: Date;
+}): Promise<GuestPopupSendRow> {
+  const rows = await withTenant(SUPER, (tx) =>
+    tx.insert(guestPopupSends)
+      .values({
+        hotelId: input.hotelId,
+        hotelGroupId: input.hotelGroupId,
+        guestStayId: input.guestStayId,
+        popupType: input.popupType,
+        surveyId: input.surveyId ?? null,
+        eventId: input.eventId ?? null,
+        content: input.content,
+        triggerAt: input.triggerAt,
+      })
+      .returning(POPUP_SEND_COLS),
+  );
+  return rows[0] as GuestPopupSendRow;
+}
+
+/** Update the trigger time of a popup send (only for scheduled/unshown sends). */
+export async function setGuestPopupSendTrigger(id: string, triggerAt: Date): Promise<void> {
+  await withTenant(SUPER, (tx) =>
+    tx.update(guestPopupSends)
+      .set({ triggerAt })
+      .where(and(eq(guestPopupSends.id, id), isNull(guestPopupSends.shownAt))),
+  );
+}
+
+/** Mark a popup send as shown (= sent to guest). */
+export async function markGuestPopupSendShown(id: string): Promise<void> {
+  await withTenant(SUPER, (tx) =>
+    tx.update(guestPopupSends)
+      .set({ shownAt: new Date() })
+      .where(eq(guestPopupSends.id, id)),
+  );
+}
+
+/** Delete a popup send (only allowed if not yet shown). */
+export async function deleteGuestPopupSend(id: string): Promise<void> {
+  await withTenant(SUPER, (tx) =>
+    tx.delete(guestPopupSends)
+      .where(and(eq(guestPopupSends.id, id), isNull(guestPopupSends.shownAt))),
+  );
+}
+
+/** Get all popup sends for a specific guest stay (any status). */
+export async function listPopupSendsForStay(guestStayId: string): Promise<GuestPopupSendRow[]> {
+  return withTenant(SUPER, (tx) =>
+    tx.select(POPUP_SEND_WITH_GUEST_COLS)
+      .from(guestPopupSends)
+      .innerJoin(guestStays, eq(guestPopupSends.guestStayId, guestStays.id))
+      .where(eq(guestPopupSends.guestStayId, guestStayId))
+      .orderBy(asc(guestPopupSends.triggerAt)),
+  ) as Promise<GuestPopupSendRow[]>;
+}
+
+/** Get due popup sends for a specific guest stay (triggerAt <= now AND shownAt IS NULL). */
+export async function listDuePopupSendsForStay(guestStayId: string): Promise<GuestPopupSendRow[]> {
+  return withTenant(SUPER, (tx) =>
+    tx.select(POPUP_SEND_WITH_GUEST_COLS)
+      .from(guestPopupSends)
+      .innerJoin(guestStays, eq(guestPopupSends.guestStayId, guestStays.id))
+      .where(and(
+        eq(guestPopupSends.guestStayId, guestStayId),
+        isNull(guestPopupSends.shownAt),
+        lte(guestPopupSends.triggerAt, new Date()),
+      ))
+      .orderBy(asc(guestPopupSends.triggerAt)),
+  ) as Promise<GuestPopupSendRow[]>;
+}
+
+/** Upcoming sends for a stay: triggerAt > now AND shownAt IS NULL, ordered by nearest first. */
+export async function listUpcomingPopupSendsForStay(guestStayId: string): Promise<GuestPopupSendRow[]> {
+  return withTenant(SUPER, (tx) =>
+    tx.select(POPUP_SEND_WITH_GUEST_COLS)
+      .from(guestPopupSends)
+      .innerJoin(guestStays, eq(guestPopupSends.guestStayId, guestStays.id))
+      .where(and(
+        eq(guestPopupSends.guestStayId, guestStayId),
+        isNull(guestPopupSends.shownAt),
+        gte(guestPopupSends.triggerAt, new Date()),
+      ))
+      .orderBy(asc(guestPopupSends.triggerAt)),
+  ) as Promise<GuestPopupSendRow[]>;
+}
+
+/** List due popup sends: triggerAt <= now AND shownAt IS NULL, with hotel MikroTik creds. */
+export async function listDuePopupSends(): Promise<Array<GuestPopupSendRow & {
+  hotelSlug: string;
+  roomNo: string;
+  mikrotikIp: string | null;
+  mikrotikApiUser: string | null;
+  mikrotikApiPassword: string | null;
+  mikrotikApiPort: number | null;
+}>> {
+  return withTenant(SUPER, (tx) =>
+    tx.select({
+      ...POPUP_SEND_COLS,
+      hotelSlug: hotels.slug,
+      roomNo: guestStays.roomNo,
+      mikrotikIp: hotels.mikrotikIp,
+      mikrotikApiUser: hotels.mikrotikApiUser,
+      mikrotikApiPassword: hotels.mikrotikApiPassword,
+      mikrotikApiPort: hotels.mikrotikApiPort,
+    })
+    .from(guestPopupSends)
+    .innerJoin(hotels, eq(guestPopupSends.hotelId, hotels.id))
+    .innerJoin(guestStays, eq(guestPopupSends.guestStayId, guestStays.id))
+    .where(and(
+      isNull(guestPopupSends.shownAt),
+      lte(guestPopupSends.triggerAt, new Date()),
+    )),
+  ) as Promise<any>;
+}
+
+/* ============================================================
+   Popup Automations — one recurring rule per (hotel, kind).
+   kind='checkout': N days before checkout, applies to all in-house guests.
+   kind='default': mirrors surveys.isDefault, "every login until answered".
+   ============================================================ */
+
+export interface PopupAutomationRow {
+  id: string;
+  hotelId: string;
+  kind: 'checkout' | 'default';
+  timing: 'd3' | 'd2' | 'd1' | 'd0' | 'every';
+  surveyId: string | null;
+  content: PopupContentMap | null;
+  status: 'active' | 'paused';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Both automation slots for a hotel (0-2 rows). */
+export async function getPopupAutomations(hotelId: string): Promise<PopupAutomationRow[]> {
+  return withTenant(SUPER, (tx) =>
+    tx.select().from(popupAutomations).where(eq(popupAutomations.hotelId, hotelId)),
+  ) as Promise<PopupAutomationRow[]>;
+}
+
+/** One automation slot by kind, or null if never created. */
+export async function getPopupAutomation(hotelId: string, kind: 'checkout' | 'default'): Promise<PopupAutomationRow | null> {
+  const rows = await withTenant(SUPER, (tx) =>
+    tx.select().from(popupAutomations)
+      .where(and(eq(popupAutomations.hotelId, hotelId), eq(popupAutomations.kind, kind)))
+      .limit(1),
+  );
+  return (rows[0] ?? null) as PopupAutomationRow | null;
+}
+
+/** Create-or-update the single slot for (hotelId, kind). Returns the resulting row. */
+export async function upsertPopupAutomation(input: {
+  hotelId: string;
+  kind: 'checkout' | 'default';
+  timing: 'd3' | 'd2' | 'd1' | 'd0' | 'every';
+  surveyId: string | null;
+  content: PopupContentMap;
+  status?: 'active' | 'paused';
+}): Promise<PopupAutomationRow> {
+  return withTenant(SUPER, async (tx) => {
+    const existing = await tx.select().from(popupAutomations)
+      .where(and(eq(popupAutomations.hotelId, input.hotelId), eq(popupAutomations.kind, input.kind)))
+      .limit(1);
+    if (existing[0]) {
+      const r = await tx.update(popupAutomations)
+        .set({
+          timing: input.timing,
+          surveyId: input.surveyId,
+          content: input.content as object,
+          status: input.status ?? existing[0].status,
+          updatedAt: new Date(),
+        })
+        .where(eq(popupAutomations.id, existing[0].id))
+        .returning();
+      return r[0]!;
+    }
+    const r = await tx.insert(popupAutomations).values({
+      hotelId: input.hotelId,
+      kind: input.kind,
+      timing: input.timing,
+      surveyId: input.surveyId,
+      content: input.content as object,
+      status: input.status ?? 'active',
+    }).returning();
+    return r[0]!;
+  }) as Promise<PopupAutomationRow>;
+}
+
+export async function setPopupAutomationStatus(id: string, status: 'active' | 'paused'): Promise<void> {
+  await withTenant(SUPER, (tx) =>
+    tx.update(popupAutomations).set({ status, updatedAt: new Date() }).where(eq(popupAutomations.id, id)),
+  );
+}
+
+export async function deletePopupAutomation(id: string): Promise<void> {
+  await withTenant(SUPER, (tx) => tx.delete(popupAutomations).where(eq(popupAutomations.id, id)));
+}
+
+/** Days-before-checkout for a 'checkout' timing value. */
+export function checkoutTimingDays(timing: 'd3' | 'd2' | 'd1' | 'd0'): number {
+  return { d3: 3, d2: 2, d1: 1, d0: 0 }[timing];
+}
+
+/**
+ * Batch-scan-and-apply: given a hotel's ACTIVE checkout automation, find every
+ * currently in-house guest stay (checkOut > now — same predicate as guests/page.tsx
+ * and guests/[guestId]/page.tsx) and create-or-update that stay's guest_popup_sends
+ * row to the automation's schedule/content. Never touches rows where shownAt IS NOT NULL.
+ */
+export async function applyCheckoutAutomationToActiveStays(automation: PopupAutomationRow): Promise<{ updated: number; created: number }> {
+  if (automation.kind !== 'checkout') throw new Error('applyCheckoutAutomationToActiveStays: kind must be checkout');
+  const days = checkoutTimingDays(automation.timing as 'd3' | 'd2' | 'd1' | 'd0');
+  const now = new Date();
+
+  return withTenant(SUPER, async (tx) => {
+    const stays = await tx.select().from(guestStays)
+      .where(and(eq(guestStays.hotelId, automation.hotelId), gt(guestStays.checkOut, now)));
+
+    let updated = 0, created = 0;
+    for (const stay of stays) {
+      if (!stay.checkOut) continue;
+      const triggerAt = new Date(stay.checkOut);
+      triggerAt.setDate(triggerAt.getDate() - days);
+      triggerAt.setHours(0, 0, 0, 0);
+
+      const sends = await tx.select().from(guestPopupSends)
+        .where(and(eq(guestPopupSends.guestStayId, stay.id), isNull(guestPopupSends.shownAt)))
+        .orderBy(desc(guestPopupSends.triggerAt));
+      const unshown = sends[0];
+
+      if (unshown) {
+        await tx.update(guestPopupSends)
+          .set({ triggerAt, surveyId: automation.surveyId, content: automation.content as object })
+          .where(eq(guestPopupSends.id, unshown.id));
+        updated++;
+      } else {
+        await tx.insert(guestPopupSends).values({
+          hotelId: stay.hotelId,
+          hotelGroupId: stay.hotelGroupId,
+          guestStayId: stay.id,
+          popupType: 'survey',
+          surveyId: automation.surveyId,
+          content: automation.content as object,
+          triggerAt,
+        });
+        created++;
+      }
+    }
+    return { updated, created };
+  });
 }

@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { Calendar, Check, Cpu, CreditCard, Download, Link2, Shield } from 'lucide-react';
 import { getHotelById, getSurveyById, type SurveyAccessControl } from '@aidahos/db';
 import { getLang } from '@/lib/i18n-server';
@@ -75,10 +76,18 @@ export default async function SurveyPublishPage({ params }: { params: Promise<{ 
             </div>
             <div className="tcard">
               <div className="tcard__head">
-                <div className="tcard__t">{L(['Bu anketi otelin varsayılan anketi yap', 'Make this the hotel’s default survey'], lang)}</div>
-                <label className="switch"><input type="checkbox" name="isAccountDefault" defaultChecked={survey.isDefault} /></label>
+                <div className="tcard__t">{L(['Otelin varsayılan anketi', 'Hotel default survey'], lang)}</div>
+                <span className={`badge ${survey.isDefault ? 'badge--ok' : 'badge--mute'}`}>
+                  {survey.isDefault ? L(['Varsayılan', 'Default'], lang) : L(['Varsayılan değil', 'Not default'], lang)}
+                </span>
               </div>
-              <div className="tcard__d">{L(['Etkinleştirilirse, misafir WiFi girişinden sonra (guest portal açılmadan önce) bu anket teklif edilir. Otel başına yalnızca bir varsayılan anket olabilir.', 'If enabled, this survey is offered right after guest WiFi login (before the guest portal). Only one default survey per hotel.'], lang)}</div>
+              <div className="tcard__d">
+                {L(
+                  ['Bu ayar Otomasyonlar ekranından yönetiliyor. Değiştirmek için ', 'This is managed from the Automations screen. To change it, go to '],
+                  lang,
+                )}
+                <Link href={`/h/${hotelId}/surveys/sends`}>{L(['Otomasyonlar', 'Automations'], lang)}</Link>.
+              </div>
             </div>
             <div className="tcard">
               <div className="tcard__head">

@@ -7,4 +7,6 @@ export * from './simulation';
 export * from './surveys';
 export * from './guest-stays';
 export * from './events';
+export * from './guest-popup-sends';
+export * from './popup-automations';
 export * from './staff';

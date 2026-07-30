@@ -1,11 +1,10 @@
-import { GuestCommsComposeForm } from '@/components/console/guests/guest-comms-compose-form';
-import { getLang } from '@/lib/i18n-server';
+import { redirect } from 'next/navigation';
 
-export default async function NewGuestSurveySendPage({
+export default async function GuestSurveySendNewRedirectPage({
   params,
 }: {
   params: Promise<{ hotelId: string }>;
 }) {
-  const [{ hotelId }, lang] = await Promise.all([params, getLang()]);
-  return <GuestCommsComposeForm hotelId={hotelId} kind="survey" lang={lang} />;
+  const { hotelId } = await params;
+  redirect(`/h/${hotelId}/surveys/sends/new`);
 }

@@ -5,25 +5,28 @@ import { useRouter } from 'next/navigation';
 import { Check } from 'lucide-react';
 import { L, type Lang } from '@/lib/i18n';
 
-export function SurveySendEditForm({
+export function PopupSendEditForm({
   hotelId,
-  surveySendId,
+  popupSendId,
   lang,
-  surveyName,
+  popupTitle,
   guestName,
   triggerAt,
+  basePath,
   onSave,
 }: {
   hotelId: string;
-  surveySendId: string;
+  popupSendId: string;
   lang: Lang;
-  surveyName: string | null;
+  popupTitle: string | null;
   guestName: string;
   triggerAt: string;
+  basePath?: string;
   onSave: (triggerAt: string) => Promise<{ ok: boolean }>;
 }) {
   const router = useRouter();
-  const detailHref = `/h/${hotelId}/guests/survey-sends/${surveySendId}`;
+  const listHref = basePath ?? `/h/${hotelId}/surveys/sends`;
+  const detailHref = `${listHref}/${popupSendId}`;
 
   const initial = new Date(triggerAt);
   // Use local time for display — the user enters times in their timezone (TR = UTC+3).
@@ -37,7 +40,7 @@ export function SurveySendEditForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
 
-  const displaySurvey = surveyName ?? L(['Checkout Anketi', 'Checkout Survey'], lang);
+  const displayTitle = popupTitle ?? L(['Popup', 'Popup'], lang);
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -72,8 +75,8 @@ export function SurveySendEditForm({
       <form className="card guest-compose-card" onSubmit={handleSubmit}>
         <div className="card__body guest-compose-card__body">
           <div>
-            <label className="flabel">{L(['Anket', 'Survey'], lang)}</label>
-            <div className="finput guest-comms-edit-readonly">{displaySurvey}</div>
+            <label className="flabel">{L(['Popup', 'Popup'], lang)}</label>
+            <div className="finput guest-comms-edit-readonly">{displayTitle}</div>
           </div>
 
           <div className="fgrid guest-compose-datetime">

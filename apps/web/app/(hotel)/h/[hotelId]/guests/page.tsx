@@ -2,6 +2,7 @@ import { getHotelById, listGuestStays } from '@aidahos/db';
 import { listRadiusUsers, isRadiusConfigured } from '@aidahos/db';
 import { GuestsClient, type SerializedGuest } from '@/components/console/guests/guests-client';
 import { getLang } from '@/lib/i18n-server';
+import { disconnectRouterAction, disconnectRadiusAction } from './actions';
 
 function avatarColor(seed: string): string {
   const COLORS = ['#0E7490', '#7C5CE0', '#0E9F6E', '#B8740A', '#2563C9', '#D5485A'];
@@ -93,6 +94,14 @@ export default async function GuestsPage({
       lang={lang}
       guests={guests}
       avgData={avgData}
+      onDisconnectRouter={async (id) => {
+        'use server';
+        return disconnectRouterAction(hotelId, id);
+      }}
+      onDisconnectRadius={async (id) => {
+        'use server';
+        return disconnectRadiusAction(hotelId, id);
+      }}
     />
   );
 }

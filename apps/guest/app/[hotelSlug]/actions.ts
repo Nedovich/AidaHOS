@@ -1,14 +1,22 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { createEventRegistration, createSurveyResponse, findHotelBySlug, getGuestStayByKey, getSurveyById, isRadiusConfigured, markSurveyShown, upsertGuestStay, upsertRadiusUser } from '@aidahos/db';
+import { checkoutTimingDays, createEventRegistration, createSurveyResponse, createGuestPopupSend, findHotelBySlug, getGuestStayByKey, getPopupAutomation, getSurveyById, isRadiusConfigured, listDuePopupSendsForStay, listPopupSendsForStay, listUpcomingPopupSendsForStay, markGuestPopupSendShown, upsertGuestStay, upsertRadiusUser, type PopupContentMap } from '@aidahos/db';
 import { verifyGuest } from '@/lib/verify';
 import { GUEST_COOKIE } from '@/lib/constants';
 import { defaultSurveyOffer, type SurveyOffer } from '@/lib/survey-offer';
 import { deriveScore } from '@/lib/score';
 
+export interface DuePopup {
+  id: string;
+  popupType: 'survey' | 'event' | 'announcement';
+  surveyId: string | null;
+  eventId: string | null;
+  content: PopupContentMap;
+}
+
 export type LoginResult =
-  | { ok: true; guestName: string | null; username: string; survey: SurveyOffer | null; showCheckoutSurvey: boolean }
+  | { ok: true; guestName: string | null; username: string; survey: SurveyOffer | null; duePopups: DuePopup[] }
   | { ok: false; error: 'invalid' | 'not_found' | 'provisioning' | 'expired' | 'not_started' };
 
 const DOB = /^\d{8}$/; // DDMMYYYY
@@ -43,34 +51,14 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
   if (checkInMs != null && now < checkInMs) return { ok: false, error: 'not_started' };
   if (checkOutMs != null && now > checkOutMs + CHECKOUT_GRACE_MS) return { ok: false, error: 'expired' };
 
-  // Compute survey trigger timestamp: checkout - hotel.surveyTriggerDays (midnight of that day).
   const checkOut = res.guest.checkOut ? new Date(res.guest.checkOut) : null;
-  let surveyTriggerAt: Date | null = null;
-  if (checkOut) {
-    const d = new Date(checkOut);
-    d.setDate(d.getDate() - (hotel.surveyTriggerDays ?? 3));
-    d.setHours(0, 0, 0, 0);
-    surveyTriggerAt = d;
-  }
 
-  // Determine Session-Timeout:
-  // - If survey not yet shown AND trigger time has passed → cap to now+60s (force portal drop)
-  // - If survey not yet shown AND trigger in future → cap to trigger time
-  // - If survey already shown (or no trigger) → cap to checkout + 1 day
-  // We'll refine this after upsertGuestStay (need surveyShownAt from DB).
-  // For now compute based on trigger time alone; after upsert we patch if needed.
-  const triggerMs = surveyTriggerAt?.getTime() ?? null;
+  // Initial Session-Timeout: checkout + 1 day as safe default.
+  // Refined after DB queries using guest_popup_sends (upcoming sends).
   const checkoutPlus1Ms = checkOutMs != null ? checkOutMs + 24 * 60 * 60 * 1000 : null;
-
   let sessionTimeoutSeconds: number | null = null;
   if (checkoutPlus1Ms != null) {
-    if (triggerMs != null && now < triggerMs) {
-      // Survey not yet due — cap to trigger time
-      sessionTimeoutSeconds = Math.max(60, Math.floor((triggerMs - now) / 1000));
-    } else {
-      // Survey due or no trigger — cap to checkout + 1 day
-      sessionTimeoutSeconds = Math.max(60, Math.floor((checkoutPlus1Ms - now) / 1000));
-    }
+    sessionTimeoutSeconds = Math.max(60, Math.floor((checkoutPlus1Ms - now) / 1000));
   }
 
   const username = `${hotel.slug}-${roomNo}`;
@@ -91,8 +79,7 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
   // Capture the verified reservation into our store (guest_stays). The hotel collects
   // signed KVKK consent at check-in; the PMS stays the source of truth, this is our copy.
   let stayId: string | null = null;
-  let surveyShownAt: Date | null = null;
-  let resolvedTriggerMs: number | null = surveyTriggerAt?.getTime() ?? null;
+  let dueSends: Array<{ id: string; popupType: 'survey' | 'event' | 'announcement'; surveyId: string | null; eventId: string | null; content: PopupContentMap | null }> = [];
   try {
     await upsertGuestStay({
       hotelGroupId: hotel.hotelGroupId,
@@ -109,24 +96,74 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
       country: res.guest.country ?? null,
       roomType: res.guest.roomType ?? null,
       currency: res.guest.currency ?? null,
-      surveyTriggerAt, // only written on first insert, not on re-login (see upsertGuestStay)
     });
-    // Fetch back to get stayId and surveyShownAt (needed for checkout survey logic).
+    // Fetch back to get stayId (needed for popup send lookup).
     const stay = await getGuestStayByKey(hotel.id, roomNo, birthDate);
     stayId = stay?.id ?? null;
-    surveyShownAt = stay?.surveyShownAt ?? null;
-    // If DB has a manual override for triggerAt, use that for timeout calculation.
-    const dbTriggerAt = stay?.surveyTriggerAt ?? surveyTriggerAt;
-    resolvedTriggerMs = dbTriggerAt?.getTime() ?? null;
-    const dbTriggerMs = resolvedTriggerMs;
-    if (checkoutPlus1Ms != null) {
-      if (surveyShownAt) {
-        // Already shown — cap to checkout + 1 day
+
+    // On first login: if an active 'checkout' automation exists for this hotel and no
+    // guest_popup_sends row exists yet for this stay, auto-create the initial scheduled
+    // send from the automation's timing/survey/content. No automation → nothing scheduled
+    // (automations are the single source of truth; hotel.surveyTriggerDays is no longer read).
+    if (stayId && checkOut) {
+      const checkoutAutomation = await getPopupAutomation(hotel.id, 'checkout');
+      if (checkoutAutomation && checkoutAutomation.status === 'active') {
+        const days = checkoutTimingDays(checkoutAutomation.timing as 'd3' | 'd2' | 'd1' | 'd0');
+        const triggerAt = new Date(checkOut);
+        triggerAt.setDate(triggerAt.getDate() - days);
+        triggerAt.setHours(0, 0, 0, 0);
+
+        const existingSends = await listPopupSendsForStay(stayId);
+        if (existingSends.length === 0) {
+          try {
+            await createGuestPopupSend({
+              hotelId: hotel.id,
+              hotelGroupId: hotel.hotelGroupId,
+              guestStayId: stayId,
+              popupType: 'survey',
+              surveyId: checkoutAutomation.surveyId,
+              eventId: null,
+              content: (checkoutAutomation.content ?? {}) as PopupContentMap,
+              triggerAt,
+            });
+          } catch (e) {
+            console.error('auto-create survey send from automation failed:', e);
+          }
+        }
+      }
+    }
+
+    // Check for due popup sends from the guest_popup_sends table.
+    if (stayId) {
+      dueSends = await listDuePopupSendsForStay(stayId);
+    }
+
+    // Session-Timeout: use the EARLIEST upcoming (future, unshown) send's triggerAt.
+    // If no upcoming sends → fall back to checkout + 1 day.
+    const prevTimeout = sessionTimeoutSeconds;
+    if (checkoutPlus1Ms != null && stayId) {
+      const upcomingSends = await listUpcomingPopupSendsForStay(stayId);
+      const nearestTriggerMs = upcomingSends[0]?.triggerAt
+        ? new Date(upcomingSends[0].triggerAt).getTime()
+        : null;
+
+      if (dueSends.length > 0) {
+        // Due sends exist — popup about to be shown, cap to checkout + 1 day
         sessionTimeoutSeconds = Math.max(60, Math.floor((checkoutPlus1Ms - now) / 1000));
-      } else if (dbTriggerMs != null && now < dbTriggerMs) {
-        sessionTimeoutSeconds = Math.max(60, Math.floor((dbTriggerMs - now) / 1000));
+      } else if (nearestTriggerMs != null) {
+        // Upcoming send found — timeout at that send's triggerAt
+        sessionTimeoutSeconds = Math.max(60, Math.floor((nearestTriggerMs - now) / 1000));
       } else {
+        // No sends at all — checkout + 1 day
         sessionTimeoutSeconds = Math.max(60, Math.floor((checkoutPlus1Ms - now) / 1000));
+      }
+    }
+    // Re-provision RADIUS if the timeout changed after reading DB state.
+    if (sessionTimeoutSeconds !== prevTimeout && isRadiusConfigured()) {
+      try {
+        await upsertRadiusUser({ username, password: birthDate, sessionTimeoutSeconds });
+      } catch (e) {
+        console.error('guest RADIUS re-provision failed:', e);
       }
     }
   } catch (e) {
@@ -152,18 +189,24 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
     { httpOnly: true, sameSite: 'lax', path: '/', expires },
   );
 
-  // Show checkout survey popup if trigger time has passed and not yet shown this stay.
-  const showCheckoutSurvey = !surveyShownAt && resolvedTriggerMs != null && now >= resolvedTriggerMs;
+  // Build the due-popups payload for the guest app (survey/event/announcement).
+  const duePopups: DuePopup[] = dueSends.map((s) => ({
+    id: s.id,
+    popupType: s.popupType,
+    surveyId: s.surveyId,
+    eventId: s.eventId,
+    content: s.content ?? {},
+  }));
 
-  // Mark survey as shown if we're about to show it, so next login skips it.
-  if (showCheckoutSurvey && stayId) {
-    try { await markSurveyShown(stayId); } catch { /* non-fatal */ }
+  // Mark all due sends as shown so next login skips them.
+  for (const s of dueSends) {
+    try { await markGuestPopupSendShown(s.id); } catch { /* non-fatal */ }
   }
 
   // Offer the hotel's default survey right after login (unless already answered this stay).
   const survey = await defaultSurveyOffer(hotel.id, roomNo, res.guest.checkIn);
 
-  return { ok: true, guestName: res.guest.guestName, username, survey, showCheckoutSurvey };
+  return { ok: true, guestName: res.guest.guestName, username, survey, duePopups };
 }
 
 /**

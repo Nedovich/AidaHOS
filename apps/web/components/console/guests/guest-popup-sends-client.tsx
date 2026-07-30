@@ -1,15 +1,31 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { type ReactNode, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, Check, ClipboardList, Clock3, Pencil, Plus, Search, Send, X } from 'lucide-react';
+import {
+  Bell,
+  CalendarDays,
+  Check,
+  ClipboardList,
+  Clock3,
+  Pause,
+  Pencil,
+  Play,
+  RefreshCw,
+  Search,
+  Send,
+  Smile,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { Kpi } from '@/components/console/charts';
 import { L, type Lang } from '@/lib/i18n';
 
-export type SurveySendStatus = 'scheduled' | 'sent' | 'completed';
+export type PopupSendStatus = 'scheduled' | 'sent' | 'completed';
+export type PopupType = 'survey' | 'event' | 'announcement';
 
-export interface SerializedSurveySend {
+export interface SerializedPopupSend {
   id: string;
   guest: {
     id: string;
@@ -21,13 +37,71 @@ export interface SerializedSurveySend {
     email: string | null;
     phone: string | null;
   };
-  surveyName: string | null;
+  popupType: PopupType;
+  popupTitle: string | null;
   triggerAt: string | null;
   shownAt: string | null;
-  status: SurveySendStatus;
+  status: PopupSendStatus;
 }
 
-function StatusBadge({ status, lang }: { status: SurveySendStatus; lang: Lang }) {
+export type AutomationKind = 'checkout' | 'default';
+export type AutomationStatus = 'active' | 'paused';
+export type AutomationTiming = 'd3' | 'd2' | 'd1' | 'd0' | 'every';
+
+export interface PopupAutomation {
+  id: string;
+  kind: AutomationKind;
+  timing: AutomationTiming;
+  status: AutomationStatus;
+}
+
+function automationTimingLabel(automation: PopupAutomation, lang: Lang) {
+  const labels: Record<AutomationTiming, [string, string]> = {
+    d3: ['Çıkıştan 3 gün önce', '3 days before check-out'],
+    d2: ['Çıkıştan 2 gün önce', '2 days before check-out'],
+    d1: ['Çıkıştan 1 gün önce', '1 day before check-out'],
+    d0: ['Çıkış günü', 'On check-out day'],
+    every: ['Tamamlanana kadar her girişte', 'Every check-in until completed'],
+  };
+  return L(labels[automation.timing], lang);
+}
+
+function automationCopy(automation: PopupAutomation, lang: Lang) {
+  const timing = automationTimingLabel(automation, lang);
+  if (automation.kind === 'checkout') {
+    return {
+      title: L(['Çıkış Anketi', 'Checkout Survey'], lang),
+      subtitle: `${timing} · ${L(['Tüm misafirler', 'All guests'], lang)}`,
+      Icon: ClipboardList,
+      tone: 'checkout',
+    };
+  }
+
+  return {
+    title: L(['Varsayılan Anket', 'Default Survey'], lang),
+    subtitle: `${timing} · ${L(['Tüm misafirler', 'All guests'], lang)}`,
+    Icon: Smile,
+    tone: 'default',
+  };
+}
+
+function PopupTypeBadge({ type, lang }: { type: PopupType; lang: Lang }) {
+  const Icon = type === 'event' ? CalendarDays : type === 'announcement' ? Bell : ClipboardList;
+  const label =
+    type === 'event'
+      ? L(['Etkinlik', 'Event'], lang)
+      : type === 'announcement'
+        ? L(['Duyuru', 'Announcement'], lang)
+        : L(['Anket', 'Survey'], lang);
+  return (
+    <span className={`badge guest-popup-type type-${type}`}>
+      <Icon size={12} />
+      {label}
+    </span>
+  );
+}
+
+function StatusBadge({ status, lang }: { status: PopupSendStatus; lang: Lang }) {
   const Icon = status === 'scheduled' ? Clock3 : status === 'completed' ? Check : Send;
   const label =
     status === 'scheduled' ? L(['Zamanlandı', 'Scheduled'], lang) :
@@ -55,7 +129,7 @@ function EditTriggerModal({
   onClose,
   onSave,
 }: {
-  record: SerializedSurveySend;
+  record: SerializedPopupSend;
   lang: Lang;
   onClose: () => void;
   onSave: (triggerAt: string) => void;
@@ -67,12 +141,12 @@ function EditTriggerModal({
     <div className="guest-detail-modal" role="presentation" onMouseDown={onClose}>
       <div className="guest-detail-modal-card" role="dialog" aria-modal onMouseDown={(e) => e.stopPropagation()}>
         <span className="guest-detail-modal-icon"><Bell /></span>
-        <h2>{L(['Anket Zamanını Düzenle', 'Edit Survey Trigger'], lang)}</h2>
+        <h2>{L(['Popup Zamanını Düzenle', 'Edit Popup Trigger'], lang)}</h2>
         <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '0 0 6px' }}>
           <strong>{record.guest.name}</strong> · {L(['Oda', 'Room'], lang)} {record.guest.room}
         </p>
         <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '0 0 14px' }}>
-          {L(['Misafirin ankete yönlendirileceği tarih ve saati ayarlayın.', 'Set when the guest will be shown the survey.'], lang)}
+          {L(['Misafirin popup\'ı göreceği tarih ve saati ayarlayın.', 'Set when the guest will be shown the popup.'], lang)}
         </p>
         <input
           type="datetime-local"
@@ -101,7 +175,7 @@ function EditTriggerModal({
   );
 }
 
-/** Modal to add a new survey send by picking a guest and trigger time.
+/** Modal to add a new popup send by picking a guest and trigger time.
  *  Guest list comes from the already-loaded `records` (stays that have a triggerAt).
  *  For adding a guest that doesn't yet have one, we need the full stays list — kept simple
  *  here: user navigates to the guest detail and uses the KPI edit button.  */
@@ -118,11 +192,11 @@ function NewSendModal({
     <div className="guest-detail-modal" role="presentation" onMouseDown={onClose}>
       <div className="guest-detail-modal-card" role="dialog" aria-modal onMouseDown={(e) => e.stopPropagation()}>
         <span className="guest-detail-modal-icon"><ClipboardList /></span>
-        <h2>{L(['Anket Zamanı Ekle', 'Add Survey Trigger'], lang)}</h2>
+        <h2>{L(['Popup Zamanı Ekle', 'Add Popup Trigger'], lang)}</h2>
         <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '0 0 16px' }}>
           {L(
-            ['Anket zamanı eklemek için misafir detay sayfasına gidin ve "Anket Zamanı" kartındaki kalem ikonuna tıklayın.',
-             'To add a survey trigger, go to the guest detail page and click the pencil icon on the "Survey Time" card.'],
+            ['Popup zamanı eklemek için misafir detay sayfasına gidin ve "Anket Zamanı" kartındaki kalem ikonuna tıklayın.',
+             'To add a popup trigger, go to the guest detail page and click the pencil icon on the "Survey Time" card.'],
             lang,
           )}
         </p>
@@ -139,23 +213,137 @@ function NewSendModal({
   );
 }
 
-export function GuestSurveySendsClient({
+function AutomationsSection({
+  lang,
+  automations,
+  onOpen,
+  onToggle,
+  onEdit,
+  onDelete,
+}: {
+  lang: Lang;
+  automations: PopupAutomation[];
+  onOpen: (automation: PopupAutomation) => void;
+  onToggle: (id: string) => void;
+  onEdit: (automation: PopupAutomation) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <section className="card guest-popup-automations" id="popup-automations">
+      <div className="guest-popup-automations__head">
+        <h2>{L(['Otomasyonlar', 'Automations'], lang)}</h2>
+        <p>
+          {L(
+            ['Giriş/çıkış tarihlerine göre otomatik gönderilen popup kuralları.', 'Popup rules sent automatically based on check-in/check-out dates.'],
+            lang,
+          )}
+        </p>
+      </div>
+      <div className="guest-popup-automations__list">
+        {automations.map((automation) => {
+          const copy = automationCopy(automation, lang);
+          const Icon = copy.Icon;
+          const active = automation.status === 'active';
+          return (
+            <div
+              className="guest-popup-automation-row"
+              key={automation.id}
+              role="link"
+              tabIndex={0}
+              onClick={() => onOpen(automation)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onOpen(automation);
+                }
+              }}
+            >
+              <span className={`guest-popup-automation-row__icon tone-${copy.tone}`}><Icon size={20} /></span>
+              <div className="guest-popup-automation-row__copy">
+                <strong>{copy.title}</strong>
+                <span>{copy.subtitle}</span>
+              </div>
+              <span className={`guest-popup-automation-row__status ${active ? 'is-active' : 'is-paused'}`}>
+                <Check size={13} />
+                {active ? L(['Aktif', 'Active'], lang) : L(['Duraklatıldı', 'Paused'], lang)}
+              </span>
+              <div className="guest-popup-automation-row__actions">
+                <button type="button" onClick={(event) => { event.stopPropagation(); onToggle(automation.id); }} aria-label={active ? L(['Duraklat', 'Pause'], lang) : L(['Etkinleştir', 'Activate'], lang)}>
+                  {active ? <Pause size={18} /> : <Play size={18} />}
+                </button>
+                <button type="button" onClick={(event) => { event.stopPropagation(); onEdit(automation); }} aria-label={L(['Düzenle', 'Edit'], lang)}>
+                  <Pencil size={18} />
+                </button>
+                <button className="danger" type="button" onClick={(event) => { event.stopPropagation(); onDelete(automation.id); }} aria-label={L(['Sil', 'Delete'], lang)}>
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {!automations.length && (
+          <div className="guest-popup-automations__empty">
+            {L(['Henüz otomasyon bulunmuyor.', 'No automations yet.'], lang)}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export function GuestPopupSendsClient({
   hotelId,
   lang,
   records: initialRecords,
+  automations: initialAutomations,
+  basePath,
+  hideHero,
+  subnav,
   onSetTrigger,
+  onToggleAutomation,
+  onDeleteAutomation,
 }: {
   hotelId: string;
   lang: Lang;
-  records: SerializedSurveySend[];
+  records: SerializedPopupSend[];
+  automations: PopupAutomation[];
+  basePath?: string;
+  hideHero?: boolean;
+  subnav?: ReactNode;
   onSetTrigger?: (guestStayId: string, triggerAt: string | null) => Promise<{ ok: boolean }>;
+  onToggleAutomation?: (automationId: string) => Promise<{ ok: boolean }>;
+  onDeleteAutomation?: (automationId: string) => Promise<{ ok: boolean }>;
 }) {
   const router = useRouter();
+  const listHref = basePath ?? `/h/${hotelId}/surveys/sends`;
   const [records, setRecords] = useState(initialRecords);
-  const [filter, setFilter] = useState<'all' | SurveySendStatus>('all');
+  const [filter, setFilter] = useState<'all' | PopupSendStatus>('all');
   const [search, setSearch] = useState('');
-  const [editing, setEditing] = useState<SerializedSurveySend | null>(null);
+  const [editing, setEditing] = useState<SerializedPopupSend | null>(null);
   const [newOpen, setNewOpen] = useState(false);
+  const [automations, setAutomations] = useState(initialAutomations);
+
+  async function handleToggleAutomation(id: string) {
+    if (!onToggleAutomation) return;
+    const res = await onToggleAutomation(id);
+    if (res.ok) {
+      setAutomations((current) => current.map((automation) => (
+        automation.id === id
+          ? { ...automation, status: automation.status === 'active' ? 'paused' : 'active' }
+          : automation
+      )));
+      router.refresh();
+    }
+  }
+
+  async function handleDeleteAutomation(id: string) {
+    if (!onDeleteAutomation) return;
+    const res = await onDeleteAutomation(id);
+    if (res.ok) {
+      setAutomations((current) => current.filter((automation) => automation.id !== id));
+      router.refresh();
+    }
+  }
 
   const counts = useMemo(() => ({
     all: records.length,
@@ -170,7 +358,9 @@ export function GuestSurveySendsClient({
     return records.filter((r) => {
       if (filter !== 'all' && r.status !== filter) return false;
       if (!q) return true;
-      return [r.guest.name, r.guest.email ?? '', r.surveyName ?? ''].some((v) => v.toLocaleLowerCase(locale).includes(q));
+      return [r.guest.name, r.guest.email ?? '', r.popupTitle ?? '', r.popupType].some((v) =>
+        v.toLocaleLowerCase(locale).includes(q),
+      );
     });
   }, [records, filter, search, lang]);
 
@@ -185,25 +375,44 @@ export function GuestSurveySendsClient({
 
   return (
     <div className="guests-page guest-survey-sends-page">
-      <div className="page-hero guests-hero">
-        <div>
-          <h1 className="page-hero__h">{L(['Anket Gönderimleri', 'Survey Sends'], lang)}</h1>
-          <p className="page-hero__sub">
-            {L(['Gönderilen ve zamanlanan check-out anketleri.', 'Checkout surveys sent and scheduled to guests.'], lang)}
-          </p>
+      {!hideHero && (
+        <div className="page-hero guests-hero">
+          <div>
+            <h1 className="page-hero__h">{L(['Popup Gönderimleri', 'Popup Sends'], lang)}</h1>
+            <p className="page-hero__sub">
+              {L(
+                ["Misafirlere gönderilen anket, etkinlik ve duyuru popup'ları.", 'Survey, event, and announcement popups sent to guests.'],
+                lang,
+              )}
+            </p>
+          </div>
+          <div className="page-hero__actions">
+            <Link className="btn btn--ghost" href={`${listHref}/automations/new`}>
+              <RefreshCw size={16} />{L(['Yeni Otomasyon', 'New Automation'], lang)}
+            </Link>
+            <Link className="btn btn--primary" href={`${listHref}/new`}>
+              <Bell size={16} />{L(['Yeni Popup', 'New Popup'], lang)}
+            </Link>
+          </div>
         </div>
-        <div className="page-hero__actions">
-          <Link className="btn btn--primary" href={`/h/${hotelId}/guests/survey-sends/new`}>
-            <Plus size={16} />{L(['Yeni Ekle', 'New Survey'], lang)}
-          </Link>
-        </div>
-      </div>
+      )}
+
+      {subnav}
 
       <div className="grid grid--kpi guest-comms-kpis">
         <Kpi icon={<Send />}    label={L(['Gönderildi', 'Sent'], lang)}       value={String(counts.sent)} />
         <Kpi icon={<Check />}   label={L(['Tamamlandı', 'Completed'], lang)}   value={String(counts.completed)} />
         <Kpi icon={<Clock3 />}  label={L(['Zamanlandı', 'Scheduled'], lang)}   value={String(counts.scheduled)} />
       </div>
+
+      <AutomationsSection
+        lang={lang}
+        automations={automations}
+        onOpen={(automation) => router.push(`${listHref}/automations/${automation.id}`)}
+        onToggle={handleToggleAutomation}
+        onEdit={(automation) => router.push(`${listHref}/automations/${automation.id}/edit`)}
+        onDelete={handleDeleteAutomation}
+      />
 
       <div className="guests-toolbar guest-comms-toolbar">
         <div className="guests-chips" role="group">
@@ -223,7 +432,7 @@ export function GuestSurveySendsClient({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={L(['Misafir veya anket ara…', 'Search guest or survey…'], lang)}
+            placeholder={L(['Misafir veya konu ara…', 'Search guest or subject…'], lang)}
           />
           {search && (
             <button type="button" onClick={() => setSearch('')} style={{ all: 'unset', cursor: 'pointer', display: 'flex', color: 'var(--text-3)' }}>
@@ -236,7 +445,7 @@ export function GuestSurveySendsClient({
       <section className="card guests-card guest-comms-card">
         <div className="card__head">
           <div>
-            <h2 className="card__title">{L(['Anket Gönderimleri', 'Survey Sends'], lang)}</h2>
+            <h2 className="card__title">{L(['Popup Gönderimleri', 'Popup Sends'], lang)}</h2>
             <p className="card__sub">{filtered.length} {L(['kayıt', 'records'], lang)}</p>
           </div>
         </div>
@@ -245,7 +454,7 @@ export function GuestSurveySendsClient({
             <thead>
               <tr>
                 <th>{L(['Misafir', 'Guest'], lang)}</th>
-                <th>{L(['Anket', 'Survey'], lang)}</th>
+                <th>{L(['Popup', 'Popup'], lang)}</th>
                 <th>{L(['Tarih / Saat', 'Date / Time'], lang)}</th>
                 <th>{L(['Durum', 'Status'], lang)}</th>
               </tr>
@@ -258,12 +467,12 @@ export function GuestSurveySendsClient({
                     key={r.id}
                     className="row-link"
                     tabIndex={0}
-                    aria-label={`${r.guest.name} · ${r.surveyName ?? ''}`}
-                    onClick={() => router.push(`/h/${hotelId}/guests/survey-sends/${r.id}`)}
+                    aria-label={`${r.guest.name} · ${r.popupTitle ?? ''}`}
+                    onClick={() => router.push(`${listHref}/${r.id}`)}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        router.push(`/h/${hotelId}/guests/survey-sends/${r.id}`);
+                        router.push(`${listHref}/${r.id}`);
                       }
                     }}
                   >
@@ -280,7 +489,10 @@ export function GuestSurveySendsClient({
                       </div>
                     </td>
                     <td className="guest-email-subject">
-                      {r.surveyName ?? L(['Checkout Anketi', 'Checkout Survey'], lang)}
+                      <div className="guest-popup-subject">
+                        <PopupTypeBadge type={r.popupType} lang={lang} />
+                        <span>{r.popupTitle ?? L(['Popup', 'Popup'], lang)}</span>
+                      </div>
                     </td>
                     <td className="mono cell-sub">{date}{time ? ` · ${time}` : ''}</td>
                     <td><StatusBadge status={r.status} lang={lang} /></td>
@@ -291,7 +503,7 @@ export function GuestSurveySendsClient({
                 <tr>
                   <td className="guests-empty" colSpan={4}>
                     {records.length === 0
-                      ? L(['Henüz anket zamanı ayarlanmamış. Misafir detay sayfasından "Anket Zamanı" KPI kartını kullanın.', 'No survey triggers set yet. Use the "Survey Time" KPI card on a guest detail page.'], lang)
+                      ? L(['Henüz popup gönderimi bulunmuyor.', 'No popup sends yet.'], lang)
                       : L(['Kayıt bulunamadı.', 'No records found.'], lang)}
                   </td>
                 </tr>

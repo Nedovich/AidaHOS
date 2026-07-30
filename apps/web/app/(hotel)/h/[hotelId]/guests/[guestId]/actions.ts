@@ -1,9 +1,13 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { setGuestSurveyTrigger } from '@aidahos/db';
+import {
+  createGuestPopupSend,
+  getHotelById,
+  listPopupSendsForStay,
+  setGuestPopupSendTrigger,
+} from '@aidahos/db';
 import { canAccessHotel, getSession } from '@/lib/auth';
-import { getHotelById } from '@aidahos/db';
 
 async function assertHotelAccess(hotelId: string) {
   const session = await getSession();
@@ -14,16 +18,53 @@ async function assertHotelAccess(hotelId: string) {
   return hotel;
 }
 
-export async function setGuestSurveyTriggerAction(
+/**
+ * Set the checkout-survey popup trigger from the guest detail KPI card.
+ * - If a scheduled (not yet shown) send exists → update its triggerAt.
+ * - Otherwise → create a new send record.
+ * This keeps guest_popup_sends as the single source of truth.
+ */
+export async function setGuestPopupSendAction(
   hotelId: string,
-  guestId: string,
+  guestStayId: string,
   triggerAt: string | null,
+  hotelGroupId: string,
+  surveyId: string | null,
+  surveyName: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     await assertHotelAccess(hotelId);
-    const date = triggerAt ? new Date(triggerAt) : null;
-    await setGuestSurveyTrigger(guestId, date);
-    revalidatePath(`/h/${hotelId}/guests/${guestId}`);
+    if (!triggerAt) return { ok: false, error: 'no-date' };
+
+    const date = new Date(triggerAt);
+    const sends = await listPopupSendsForStay(guestStayId);
+
+    // Find the most recent scheduled (not yet shown) send to update.
+    const scheduledSend = sends
+      .filter((s) => !s.shownAt)
+      .sort((a, b) => b.triggerAt.getTime() - a.triggerAt.getTime())[0];
+
+    if (scheduledSend) {
+      await setGuestPopupSendTrigger(scheduledSend.id, date);
+    } else {
+      // No scheduled send exists — create a new one.
+      await createGuestPopupSend({
+        hotelId,
+        hotelGroupId,
+        guestStayId,
+        popupType: 'survey',
+        surveyId,
+        eventId: null,
+        content: {
+          tr: { title: surveyName ?? '', description: '', buttonLabel: 'Anketi Doldur' },
+          en: { title: surveyName ?? '', description: '', buttonLabel: 'Take Survey' },
+        },
+        triggerAt: date,
+      });
+    }
+
+    revalidatePath(`/h/${hotelId}/guests/${guestStayId}`);
+    revalidatePath(`/h/${hotelId}/surveys/sends`);
     return { ok: true };
   } catch {
     return { ok: false, error: 'forbidden' };

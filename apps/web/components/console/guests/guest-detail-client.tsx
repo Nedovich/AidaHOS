@@ -64,6 +64,7 @@ export interface SerializedGuestDetail {
   sessions: SerializedSession[];
   surveyTriggerAt: string | null;
   surveyShownAt: string | null;
+  latestSurveySendId: string | null;
 }
 
 function InfoRow({

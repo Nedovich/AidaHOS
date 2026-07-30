@@ -27,16 +27,21 @@ export function RouteProgress() {
     }
   };
 
+  const safetyT = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const start = () => {
     if (tick.current) return; // already running
     if (fadeT.current) clearTimeout(fadeT.current);
     if (resetT.current) clearTimeout(resetT.current);
+    if (safetyT.current) clearTimeout(safetyT.current);
     setVisible(true);
     setProgress(10);
     tick.current = setInterval(() => {
       // ease toward 90% and slow down as it approaches
       setProgress((p) => (p >= 90 ? p : p + Math.max(0.5, (90 - p) * 0.06)));
     }, 120);
+    // Safety: auto-complete after 10s so the bar never stays stuck
+    safetyT.current = setTimeout(() => complete(), 10_000);
   };
 
   // Snap to 100% and fade out. Shared by route changes AND server-action submits.
@@ -80,17 +85,34 @@ export function RouteProgress() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Complete when the route actually changes (covers link clicks + redirecting actions).
+  // When pathname changes the route is registered but server data is still loading.
+  // Jump bar to 75% quickly, then wait for aida:page-ready (skeleton unmount) to finish.
+  // Fallback: if loading.tsx never mounted (instant cache hit), complete after 400ms.
   useEffect(() => {
-    complete();
+    stop();
+    if (safetyT.current) clearTimeout(safetyT.current);
+    setProgress((p) => {
+      if (p === 0) return 0; // bar wasn't started (e.g. browser back/forward), don't show
+      return 75;
+    });
+    safetyT.current = setTimeout(() => complete(), 3_000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
+
+  // aida:page-ready fires when PageSkeleton unmounts (real content arrived).
+  useEffect(() => {
+    const onReady = () => complete();
+    window.addEventListener('aida:page-ready', onReady);
+    return () => window.removeEventListener('aida:page-ready', onReady);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(
     () => () => {
       stop();
       if (fadeT.current) clearTimeout(fadeT.current);
       if (resetT.current) clearTimeout(resetT.current);
+      if (safetyT.current) clearTimeout(safetyT.current);
     },
     [],
   );

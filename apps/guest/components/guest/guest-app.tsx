@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { PORTAL_LANGS, portalAccent, portalPrimary, resolveLoc, type PortalConfig } from '@aidahos/db/portal-config';
+import { PORTAL_LANGS, portalAccent, portalPrimary, resolveLoc, resolvePopupContent, type PopupContentMap, type PortalConfig } from '@aidahos/db/portal-config';
 import { AIDA_BRANDS, AIDA_GUEST, AIDA_NOTIFS, type AidaEvent, type Brand } from '@/lib/data';
 import { LangCtx, L, makeT, useLang, type Lang } from '@/lib/i18n';
 import type { SurveyOffer } from '@/lib/survey-types';
@@ -9,35 +9,52 @@ import { BottomNav, Icon, Sheet } from './ui';
 import { ComingSoon, EventSheet, Events, Home, Login, Splash } from './screens';
 import { CaptiveSurvey } from '@/components/captive-survey';
 
-function CheckoutSurveyPopup({ onFill, onSkip }: { onFill: () => void; onSkip: () => void }) {
+export interface DuePopup {
+  id: string;
+  popupType: 'survey' | 'event' | 'announcement';
+  surveyId: string | null;
+  eventId: string | null;
+  content: PopupContentMap;
+}
+
+/** Generalized popup shown for a due guest_popup_sends row: survey, event, or announcement. */
+function GuestPopupModal({ popup, onContinue, onDismiss }: { popup: DuePopup; onContinue: () => void; onDismiss: () => void }) {
   const { lang } = useLang();
+  const content = resolvePopupContent(popup.content, lang as 'en' | 'tr' | 'de' | 'ru', 'en');
+  const icon = popup.popupType === 'event' ? 'events' : popup.popupType === 'announcement' ? 'bell' : 'star';
+  const title = content.title || L({ en: 'How was your stay?', tr: 'Konaklamanız nasıldı?', de: 'Wie war Ihr Aufenthalt?', ru: 'Как прошло пребывание?' }, lang);
+  const description = content.description || L(
+    {
+      en: 'We\'d love to hear your feedback before you leave. It only takes a minute.',
+      tr: 'Ayrılmadan önce görüşlerinizi almak isteriz. Sadece bir dakika sürer.',
+      de: 'Wir würden gerne Ihr Feedback hören. Es dauert nur eine Minute.',
+      ru: 'Хотим услышать ваш отзыв перед отъездом. Это займёт минуту.',
+    },
+    lang,
+  );
+  const continueLabel = content.buttonLabel || L({ en: 'Fill in the survey', tr: 'Anketi doldur', de: 'Umfrage ausfüllen', ru: 'Заполнить анкету' }, lang);
+
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 70, display: 'grid', placeItems: 'center', padding: 24, background: 'rgba(20,28,30,.5)', backdropFilter: 'blur(3px)' }}>
       <div className="card" style={{ width: '100%', maxWidth: 360, padding: 24, textAlign: 'center' }}>
         <div style={{ width: 56, height: 56, margin: '0 auto 14px', borderRadius: 16, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--brand-primary) 14%, var(--surface))', color: 'var(--brand-primary)' }}>
-          <Icon name="star" size={26} stroke={2} />
+          <Icon name={icon} size={26} stroke={2} />
         </div>
         <h3 style={{ margin: '0 0 6px', fontFamily: 'var(--font-display)', fontSize: 23, fontWeight: 600, color: 'var(--ink)' }}>
-          {L({ en: 'How was your stay?', tr: 'Konaklamanız nasıldı?', de: 'Wie war Ihr Aufenthalt?', ru: 'Как прошло пребывание?' }, lang)}
+          {title}
         </h3>
         <p className="t-body" style={{ margin: '0 0 20px' }}>
-          {L(
-            {
-              en: 'We\'d love to hear your feedback before you leave. It only takes a minute.',
-              tr: 'Ayrılmadan önce görüşlerinizi almak isteriz. Sadece bir dakika sürer.',
-              de: 'Wir würden gerne Ihr Feedback hören. Es dauert nur eine Minute.',
-              ru: 'Хотим услышать ваш отзыв перед отъездом. Это займёт минуту.',
-            },
-            lang,
-          )}
+          {description}
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button onClick={onFill} style={{ padding: '14px', border: 'none', borderRadius: 'var(--r-md)', background: 'var(--brand-primary)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
-            {L({ en: 'Fill in the survey', tr: 'Anketi doldur', de: 'Umfrage ausfüllen', ru: 'Заполнить анкету' }, lang)}
+          <button onClick={onContinue} style={{ padding: '14px', border: 'none', borderRadius: 'var(--r-md)', background: 'var(--brand-primary)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+            {continueLabel}
           </button>
-          <button onClick={onSkip} style={{ padding: '12px', border: 0, background: 'none', color: 'var(--ink-soft, var(--brand-secondary))', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
-            {L({ en: 'Skip, connect me', tr: 'Geç, bağlan', de: 'Überspringen', ru: 'Пропустить' }, lang)}
-          </button>
+          {popup.popupType === 'survey' && (
+            <button onClick={onDismiss} style={{ padding: '12px', border: 0, background: 'none', color: 'var(--ink-soft, var(--brand-secondary))', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+              {L({ en: 'Skip, connect me', tr: 'Geç, bağlan', de: 'Überspringen', ru: 'Пропустить' }, lang)}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -99,7 +116,7 @@ type SheetState = { type: null | 'reception' | 'event' | 'dining' | 'spa'; item?
 export type LoginFn = (
   room: string,
   dob: string,
-) => Promise<{ ok: boolean; error?: string; username?: string; survey?: SurveyOffer | null; showCheckoutSurvey?: boolean }>;
+) => Promise<{ ok: boolean; error?: string; username?: string; survey?: SurveyOffer | null; duePopups?: DuePopup[] }>;
 
 export type StaffLoginFn = (
   username: string,
@@ -177,7 +194,7 @@ function AppInner({ loginAction, staffLoginAction, registerForEventAction, porta
   const [offer, setOffer] = useState<SurveyOffer | null>(surveyOffer ?? null);
   const [invite, setInvite] = useState<boolean>(!!surveyOffer);
   const [surveyOpen, setSurveyOpen] = useState(false);
-  const [checkoutPopup, setCheckoutPopup] = useState(false);
+  const [duePopups, setDuePopups] = useState<DuePopup[]>([]);
   const clearUrl = () => {
     try {
       if (typeof window !== 'undefined' && window.location.search) window.history.replaceState(null, '', `/${hotelSlug ?? ''}`);
@@ -248,11 +265,11 @@ function AppInner({ loginAction, staffLoginAction, registerForEventAction, porta
           portal={portal}
           hotelSlug={hotelSlug}
           login={portalConfig?.login}
-          onLogin={(survey, showCheckoutSurvey) => {
+          onLogin={(survey, popups) => {
             setStage('app');
             setTab('home');
-            if (showCheckoutSurvey) {
-              setCheckoutPopup(true);
+            if (popups && popups.length > 0) {
+              setDuePopups(popups);
             } else if (survey) {
               setOffer(survey);
               setInvite(true);
@@ -276,10 +293,15 @@ function AppInner({ loginAction, staffLoginAction, registerForEventAction, porta
       {stage === 'app' && surveyOpen && offer && (
         <CaptiveSurvey offer={offer} onDone={() => { setSurveyOpen(false); clearUrl(); }} />
       )}
-      {stage === 'app' && checkoutPopup && (
-        <CheckoutSurveyPopup
-          onFill={() => { setCheckoutPopup(false); setTab('survey'); }}
-          onSkip={() => setCheckoutPopup(false)}
+      {stage === 'app' && duePopups.length > 0 && duePopups[0] && (
+        <GuestPopupModal
+          popup={duePopups[0]}
+          onContinue={() => {
+            const p = duePopups[0];
+            setDuePopups((prev) => prev.slice(1));
+            if (p?.popupType === 'survey') setTab('survey');
+          }}
+          onDismiss={() => setDuePopups((prev) => prev.slice(1))}
         />
       )}
       <EventSheet

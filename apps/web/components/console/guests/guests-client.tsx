@@ -1,9 +1,11 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  Check,
   Download,
   MoreHorizontal,
   Plus,
@@ -11,6 +13,7 @@ import {
   Star,
   UserRound,
   Wifi,
+  WifiOff,
 } from 'lucide-react';
 import { Kpi } from '@/components/console/charts';
 import { L, type Lang } from '@/lib/i18n';
@@ -43,33 +46,176 @@ function csvCell(v: string) {
   return `"${v.replaceAll('"', '""')}"`;
 }
 
-function GuestActions({ guestId, hotelId, lang }: { guestId: string; hotelId: string; lang: Lang }) {
+type StepStatus = 'idle' | 'pending' | 'done' | 'error';
+
+function StepRow({ label, status, lang }: { label: string; status: StepStatus; lang: Lang }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+      <span style={{
+        width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: status === 'done' ? 'var(--ok-soft, #d1fae5)' : status === 'error' ? 'var(--danger-soft)' : status === 'pending' ? 'var(--surface-2, #f3f4f6)' : 'var(--surface-2, #f3f4f6)',
+        color: status === 'done' ? 'var(--ok, #059669)' : status === 'error' ? 'var(--danger)' : 'var(--text-3)',
+        transition: 'background 0.2s, color 0.2s',
+      }}>
+        {status === 'done' && <Check size={13} strokeWidth={2.5} />}
+        {status === 'error' && <span style={{ fontSize: 12, fontWeight: 700 }}>✕</span>}
+        {status === 'pending' && (
+          <span style={{
+            width: 12, height: 12, border: '2px solid var(--text-3)', borderTopColor: 'var(--text-1)',
+            borderRadius: '50%', animation: 'dc-spin 0.7s linear infinite', display: 'block',
+          }} />
+        )}
+        {status === 'idle' && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--border)', display: 'block' }} />}
+      </span>
+      <span style={{ fontSize: 13.5, color: status === 'done' ? 'var(--text-1)' : status === 'error' ? 'var(--danger)' : 'var(--text-2)', flex: 1 }}>
+        {label}
+      </span>
+      {status === 'done' && <span style={{ fontSize: 12, color: 'var(--ok, #059669)', fontWeight: 500 }}>{L(['Tamamlandı', 'Done'], lang)}</span>}
+      {status === 'error' && <span style={{ fontSize: 12, color: 'var(--danger)', fontWeight: 500 }}>{L(['Hata', 'Error'], lang)}</span>}
+    </div>
+  );
+}
+
+
+function GuestActions({
+  guestId,
+  hotelId,
+  lang,
+  online,
+  onDisconnectRouter,
+  onDisconnectRadius,
+}: {
+  guestId: string;
+  hotelId: string;
+  lang: Lang;
+  online: boolean;
+  onDisconnectRouter: (id: string) => Promise<{ ok: boolean; error?: string }>;
+  onDisconnectRadius: (id: string) => Promise<{ ok: boolean; error?: string }>;
+}) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const [confirming, setConfirming] = useState(false);
+  const [routerStatus, setRouterStatus] = useState<StepStatus>('idle');
+  const [radiusStatus, setRadiusStatus] = useState<StepStatus>('idle');
+  const [phase, setPhase] = useState<'confirm' | 'running' | 'done'>('confirm');
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  function resetDialog() {
+    setConfirming(false);
+    setPhase('confirm');
+    setRouterStatus('idle');
+    setRadiusStatus('idle');
+  }
+
+  async function handleStart() {
+    setPhase('running');
+    setRouterStatus('pending');
+    setRadiusStatus('idle');
+
+    const routerRes = await onDisconnectRouter(guestId);
+    setRouterStatus(routerRes.ok ? 'done' : 'error');
+
+    if (routerRes.ok) {
+      setRadiusStatus('pending');
+      const radiusRes = await onDisconnectRadius(guestId);
+      setRadiusStatus(radiusRes.ok ? 'done' : 'error');
+    }
+
+    setPhase('done');
+  }
+
+  function handleOpen() {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const menuHeight = online ? 88 : 44;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < menuHeight + 8) {
+        setMenuStyle({ position: 'fixed', top: rect.top - menuHeight - 4, right: window.innerWidth - rect.right, zIndex: 50 });
+      } else {
+        setMenuStyle({ position: 'fixed', top: rect.bottom + 4, right: window.innerWidth - rect.right, zIndex: 50 });
+      }
+    }
+    setOpen((v) => !v);
+  }
 
   return (
     <div
       className="rowact rowmenu guests-rowmenu"
-      ref={ref}
       onClick={(e) => e.stopPropagation()}
     >
       <button
+        ref={btnRef}
         type="button"
         aria-label={L(['Misafir işlemleri', 'Guest actions'], lang)}
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleOpen}
       >
         <MoreHorizontal />
       </button>
       {open && (
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setOpen(false)} />
-          <div className="rowmenu__pop" style={{ zIndex: 50 }}>
+          <div className="rowmenu__pop" style={menuStyle}>
             <Link className="rowmenu__item" href={`/h/${hotelId}/guests/${guestId}`} onClick={() => setOpen(false)}>
               <UserRound size={15} /> {L(['Detay', 'View Detail'], lang)}
             </Link>
+            {online && (
+              <button
+                className="rowmenu__item danger"
+                type="button"
+                onClick={() => { setOpen(false); setConfirming(true); }}
+              >
+                <WifiOff size={15} /> {L(['Bağlantıyı Kes', 'Disconnect'], lang)}
+              </button>
+            )}
           </div>
         </>
+      )}
+      {confirming && createPortal(
+        <div className="modal-overlay" onMouseDown={phase === 'done' || routerStatus === 'error' ? resetDialog : undefined}>
+          <div className="modal" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-modal>
+            <div className="modal__head">
+              <div className="modal__ico"><WifiOff size={20} /></div>
+              <div>
+                <div className="modal__title">{L(['Bağlantıyı Kes', 'Disconnect Wi-Fi'], lang)}</div>
+                <div className="modal__sub">
+                  {phase === 'confirm'
+                    ? L(['Misafirin aktif Wi-Fi oturumu sonlandırılacak. Emin misiniz?', "The guest's active Wi-Fi session will be terminated. Are you sure?"], lang)
+                    : L(['Oturumlar kapatılıyor…', 'Terminating sessions…'], lang)}
+                </div>
+              </div>
+            </div>
+            <div className="modal__body" style={{ paddingTop: 4, paddingBottom: 4 }}>
+              <StepRow label="Router Session (MikroTik)" status={routerStatus} lang={lang} />
+              <StepRow label="Radius Session" status={radiusStatus} lang={lang} />
+              <style>{`@keyframes dc-spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+            <div className="modal__foot">
+              {phase === 'confirm' && (
+                <>
+                  <button type="button" className="btn btn--ghost" onClick={resetDialog}>
+                    {L(['Vazgeç', 'Cancel'], lang)}
+                  </button>
+                  <button type="button" className="btn btn--danger" onClick={handleStart}>
+                    <WifiOff size={15} /> {L(['Bağlantıyı Kes', 'Disconnect'], lang)}
+                  </button>
+                </>
+              )}
+              {phase === 'running' && (
+                <button type="button" className="btn btn--ghost" disabled>
+                  {L(['İşleniyor…', 'Processing…'], lang)}
+                </button>
+              )}
+              {phase === 'done' && (
+                <button type="button" className="btn btn--ghost" onClick={resetDialog}>
+                  {L(['Kapat', 'Close'], lang)}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -80,11 +226,15 @@ export function GuestsClient({
   lang,
   guests,
   avgData,
+  onDisconnectRouter,
+  onDisconnectRadius,
 }: {
   hotelId: string;
   lang: Lang;
   guests: SerializedGuest[];
   avgData: string;
+  onDisconnectRouter: (guestStayId: string) => Promise<{ ok: boolean; error?: string }>;
+  onDisconnectRadius: (guestStayId: string) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<'all' | StayStatus>('all');
@@ -275,7 +425,7 @@ export function GuestsClient({
                       <span className="badge badge--mute">{L(['Çıkış Yaptı', 'Checked Out'], lang)}</span>
                     )}
                   </td>
-                  <td><GuestActions guestId={g.id} hotelId={hotelId} lang={lang} /></td>
+                  <td><GuestActions guestId={g.id} hotelId={hotelId} lang={lang} online={g.online} onDisconnectRouter={onDisconnectRouter} onDisconnectRadius={onDisconnectRadius} /></td>
                 </tr>
               ))}
             </tbody>

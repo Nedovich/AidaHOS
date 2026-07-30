@@ -8,7 +8,6 @@ import {
   getResponseById,
   getSurveyById,
   setCheckoutSurvey,
-  setDefaultSurvey,
   setSurveyStatus,
   surveyNameExists,
   updateResponseInternal,
@@ -125,17 +124,13 @@ export async function deleteSurveyAction(consoleHotelId: string, surveyId: strin
  * "Save Changes" never (un)publishes by accident.
  */
 export async function savePublishAction(consoleHotelId: string, surveyId: string, formData: FormData) {
-  const { survey } = await assertSurveyInGroup(consoleHotelId, surveyId);
-  const makeDefault = formData.get('isAccountDefault') === 'on';
+  await assertSurveyInGroup(consoleHotelId, surveyId);
   await updateSurvey(surveyId, {
     accessControl: {
       guestVerification: formData.get('guestVerification') === 'on',
-      isAccountDefault: makeDefault,
       expiresAt: (formData.get('expiresAt') as string) || null,
     },
   });
-  // The default survey is shown after captive-WiFi login — at most one per hotel.
-  if (survey.hotelId) await setDefaultSurvey(survey.hotelId, surveyId, makeDefault);
 
   const flag = formData.get('_publish');
   if (flag === 'publish' || flag === 'unpublish') {
@@ -145,12 +140,6 @@ export async function savePublishAction(consoleHotelId: string, surveyId: string
   }
   // Plain "Save Changes": persist settings, stay on the publish step.
   revalidatePath(`/h/${consoleHotelId}/surveys/${surveyId}/edit/publish`);
-}
-
-export async function setDefaultSurveyAction(consoleHotelId: string, surveyId: string, makeDefault: boolean) {
-  const { survey } = await assertSurveyInGroup(consoleHotelId, surveyId);
-  if (survey.hotelId) await setDefaultSurvey(survey.hotelId, surveyId, makeDefault);
-  revalidatePath(`/h/${consoleHotelId}/surveys/forms`);
 }
 
 export async function setCheckoutSurveyAction(consoleHotelId: string, surveyId: string, makeCheckout: boolean) {

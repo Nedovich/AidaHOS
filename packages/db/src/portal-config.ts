@@ -14,6 +14,21 @@ export function resolveLoc(loc: Loc | undefined, lang: PortalLang, def: PortalLa
   return loc[lang] ?? loc[def] ?? Object.values(loc).find((v) => v) ?? '';
 }
 
+/** Localized content for a single guest popup send (survey/event/announcement). */
+export interface PopupContent {
+  title: string;
+  description: string;
+  buttonLabel: string;
+}
+export type PopupContentMap = Partial<Record<PortalLang, PopupContent>>;
+
+/** Pick localized popup content the same way resolveLoc picks a string. */
+export function resolvePopupContent(map: PopupContentMap | undefined, lang: PortalLang, def: PortalLang): PopupContent {
+  const empty: PopupContent = { title: '', description: '', buttonLabel: '' };
+  if (!map) return empty;
+  return map[lang] ?? map[def] ?? Object.values(map).find((v) => v) ?? empty;
+}
+
 /* ---------------- brand design constants (mirror the design handoff) ---------------- */
 export const PORTAL_PALETTES = {
   primary: [

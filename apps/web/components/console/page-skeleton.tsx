@@ -1,9 +1,20 @@
+'use client';
+
+import { useEffect } from 'react';
+
 /** Instant content skeleton shown (via loading.tsx) while a console page renders. */
 function Sk({ w, h = 14, r = 6, style }: { w: number | string; h?: number; r?: number; style?: React.CSSProperties }) {
   return <div className="sk" style={{ width: w, height: h, borderRadius: r, ...style }} />;
 }
 
 export function PageSkeleton() {
+  // When this skeleton unmounts, the real page content has arrived — complete the progress bar.
+  useEffect(() => {
+    return () => {
+      window.dispatchEvent(new Event('aida:page-ready'));
+    };
+  }, []);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-5)', minHeight: '60vh' }}>
       {/* page hero */}

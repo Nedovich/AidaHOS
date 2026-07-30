@@ -27,3 +27,19 @@ export const responseStatusType = pgEnum('survey_response_status', ['new', 'revi
 
 /** Lifecycle of a hotel event (mirrors the Events list status pills). */
 export const eventStatusType = pgEnum('event_status', ['draft', 'scheduled', 'live', 'full', 'completed', 'cancelled']);
+
+/** What kind of popup a guest_popup_sends row shows: survey, event announcement, or free-text announcement. */
+export const popupSendType = pgEnum('popup_send_type', ['survey', 'event', 'announcement']);
+
+/** Which recurring popup rule a popup_automations row represents. */
+export const popupAutomationKind = pgEnum('popup_automation_kind', ['checkout', 'default']);
+
+/** Whether an automation is currently applied to guest logins. */
+export const popupAutomationStatus = pgEnum('popup_automation_status', ['active', 'paused']);
+
+/**
+ * Canonical timing set for popup_automations. 'every' is the only meaningful value
+ * for kind='default' — hasGuestResponded only supports "keep offering until answered
+ * this stay", there is no honest way to express "ask only once ever".
+ */
+export const popupAutomationTiming = pgEnum('popup_automation_timing', ['d3', 'd2', 'd1', 'd0', 'every']);

@@ -72,7 +72,6 @@ const NAV: { group: Pair; items: Item[] }[] = [
         label: ['Misafirler', 'Guests'],
         children: [
           { id: 'emails', icon: Mail, label: ['E-postalar', 'Emails'] },
-          { id: 'survey-sends', icon: ClipboardList, label: ['Anket Gönderimleri', 'Survey Sends'] },
           { id: 'welcome-messages', icon: MessageCircle, label: ['Karşılama Mesajları', 'Welcome Messages'] },
           { id: 'groups', icon: UsersRound, label: ['Gruplar', 'Groups'] },
         ],
@@ -82,7 +81,7 @@ const NAV: { group: Pair; items: Item[] }[] = [
   {
     group: ['Etkileşim', 'Engagement'],
     items: [
-      { id: 'surveys', icon: ClipboardList, label: ['Anketler', 'Surveys'] },
+      { id: 'surveys', icon: ClipboardList, label: ['Anketler & Gönderimler', 'Surveys & Sends'] },
       { id: 'notifs', icon: Bell, label: ['Bildirimler', 'Notifications'], soon: true },
       { id: 'ai', icon: Sparkles, label: ['AI Asistan', 'AI Assistant'], soon: true },
       { id: 'events', icon: Calendar, label: ['Etkinlikler', 'Events'] },

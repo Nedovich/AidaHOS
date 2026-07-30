@@ -64,6 +64,87 @@ final result: blocked pending user visual review
 
 ---
 
+# Surveys & Sends / Popup Sends Design QA
+
+- Source implementation: `design/aida/project/assets/screens/survey-wizard.js`
+- Source implementation: `design/aida/project/assets/screens/guest-comms.js`
+- Implementation route: `/h/[hotelId]/surveys/sends`
+
+## Implemented
+
+- The sidebar section is now named Surveys & Sends / Anketler & Gönderimler.
+- Survey section tabs now follow Overview, Forms, Sends, Responses and Reports.
+- Sends uses the updated Popup Sends title, description and New Popup action.
+- The list now presents popup type badges and is ready for survey, event and announcement records.
+- KPI cards, status filters, subject search, table navigation and bilingual labels remain functional.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- No browser or development server was started, per user request.
+- Visual browser comparison is intentionally left to the user.
+
+final result: blocked pending user visual review
+
+---
+
+# Guest Groups Refresh Design QA
+
+- Source implementation: `design/aida/project/assets/screens/guest-groups.js`
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_6gxY0d/Screenshot 2026-07-28 at 22.21.06.png`
+- Groups route: `/h/[hotelId]/guests/groups`
+- Edit route: `/h/[hotelId]/guests/groups/[groupId]/edit`
+
+## Implemented
+
+- Added All, Has Guests and Empty group filters.
+- Added live group-name search.
+- Added Cards and List views with the preference stored locally.
+- Added View, Edit and Delete actions to every group in both views.
+- Added a populated Edit Group flow that reuses the New Group guest selector.
+- Added delete confirmation and immediate list updates.
+- Matched the revised Turkish dummy group names, colors and avatar stacks.
+- Added responsive toolbar and table behavior.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed for the changed TypeScript files.
+- No browser or development server was started, per user request.
+- Visual browser comparison is intentionally left to the user.
+
+final result: blocked pending user visual review
+
+---
+
+# New Guest Group Design QA
+
+- Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_Rh1ZIT/Screenshot 2026-07-28 at 18.20.34.png`
+- Source implementation: `design/aida/project/assets/screens/guest-groups.js`
+- Implementation route: `/h/[hotelId]/guests/groups/new`
+
+## Implemented
+
+- The Groups list New Group action opens a dedicated creation route.
+- Group name, stay-status chips, online-only filtering, text search and check-in date filters match the source structure.
+- The guest picker includes avatars, rooms, stay and connection badges, individual selection, Select Visible and Clear controls.
+- Selection and filtered-result totals update immediately.
+- Create Group validates the group name, adds the selected members to a mock group and returns to Groups.
+- The two-card layout and bottom action area adapt to tablet and mobile widths.
+- Turkish and English labels use the existing console language system.
+
+## Verification
+
+- TypeScript validation passed.
+- Source formatting checks passed.
+- No browser or development server was started, per user request.
+- Visual browser comparison is intentionally left to the user.
+
+final result: blocked pending user visual review
+
+---
+
 # Guest Survey Send Detail Design QA
 
 - Source visual truth: `/var/folders/1f/zrwfl7qs1wv22ql9ky91kj0w0000gn/T/TemporaryItems/NSIRD_screencaptureui_VBw1tH/Screenshot 2026-07-26 at 16.52.32.png`
