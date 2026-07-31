@@ -183,18 +183,21 @@ export interface GuestAppProps {
   startInApp?: boolean;
   session?: GuestSession | null;
   surveyOffer?: SurveyOffer | null;
+  initialDuePopups?: DuePopup[];
+  onMarkPopupShown?: (id: string) => Promise<void>;
   portalConfig?: PortalConfig | null;
   events?: AidaEvent[];
 }
 
-function AppInner({ loginAction, staffLoginAction, registerForEventAction, portal, hotelSlug, startInApp, session, surveyOffer, portalConfig, events }: { loginAction?: LoginFn; staffLoginAction?: StaffLoginFn; registerForEventAction?: RegisterForEventFn; portal?: MikrotikPortal | null; hotelSlug?: string; startInApp?: boolean; session?: GuestSession | null; surveyOffer?: SurveyOffer | null; portalConfig?: PortalConfig | null; events?: AidaEvent[] }) {
+function AppInner({ loginAction, staffLoginAction, registerForEventAction, portal, hotelSlug, startInApp, session, surveyOffer, initialDuePopups, onMarkPopupShown, portalConfig, events }: { loginAction?: LoginFn; staffLoginAction?: StaffLoginFn; registerForEventAction?: RegisterForEventFn; portal?: MikrotikPortal | null; hotelSlug?: string; startInApp?: boolean; session?: GuestSession | null; surveyOffer?: SurveyOffer | null; initialDuePopups?: DuePopup[]; onMarkPopupShown?: (id: string) => Promise<void>; portalConfig?: PortalConfig | null; events?: AidaEvent[] }) {
   const [stage, setStage] = useState<'splash' | 'login' | 'app'>(startInApp ? 'app' : 'splash');
-  // Default-survey flow: server passes surveyOffer on the ?connected=1 return; the dev
-  // (no-MikroTik) login path supplies it via the loginAction result instead.
-  const [offer, setOffer] = useState<SurveyOffer | null>(surveyOffer ?? null);
-  const [invite, setInvite] = useState<boolean>(!!surveyOffer);
+  // Due popups take priority over the default survey. On ?connected=1 the server
+  // pre-fetches both; on the dev (no-MikroTik) path they come from the loginAction result.
+  const [duePopups, setDuePopups] = useState<DuePopup[]>(initialDuePopups ?? []);
+  const hasDue = duePopups.length > 0;
+  const [offer, setOffer] = useState<SurveyOffer | null>(hasDue ? null : (surveyOffer ?? null));
+  const [invite, setInvite] = useState<boolean>(!hasDue && !!surveyOffer);
   const [surveyOpen, setSurveyOpen] = useState(false);
-  const [duePopups, setDuePopups] = useState<DuePopup[]>([]);
   const clearUrl = () => {
     try {
       if (typeof window !== 'undefined' && window.location.search) window.history.replaceState(null, '', `/${hotelSlug ?? ''}`);
@@ -298,10 +301,15 @@ function AppInner({ loginAction, staffLoginAction, registerForEventAction, porta
           popup={duePopups[0]}
           onContinue={() => {
             const p = duePopups[0];
+            if (p?.id) onMarkPopupShown?.(p.id);
             setDuePopups((prev) => prev.slice(1));
             if (p?.popupType === 'survey') setTab('survey');
           }}
-          onDismiss={() => setDuePopups((prev) => prev.slice(1))}
+          onDismiss={() => {
+            const p = duePopups[0];
+            if (p?.id) onMarkPopupShown?.(p.id);
+            setDuePopups((prev) => prev.slice(1));
+          }}
         />
       )}
       <EventSheet
@@ -317,7 +325,7 @@ function AppInner({ loginAction, staffLoginAction, registerForEventAction, porta
   );
 }
 
-export function GuestApp({ loginAction, staffLoginAction, registerForEventAction, portal, hotelSlug, startInApp, session, surveyOffer, portalConfig, events }: GuestAppProps = {}) {
+export function GuestApp({ loginAction, staffLoginAction, registerForEventAction, portal, hotelSlug, startInApp, session, surveyOffer, initialDuePopups, onMarkPopupShown, portalConfig, events }: GuestAppProps = {}) {
   // Initial language = the portal's default (unless the guest already picked one).
   const [lang, setLangState] = useState<Lang>((portalConfig?.langs.default as Lang) ?? 'en');
   useEffect(() => {
@@ -330,7 +338,7 @@ export function GuestApp({ loginAction, staffLoginAction, registerForEventAction
   return (
     <LangCtx.Provider value={value}>
       <div style={{ position: 'relative', width: '100%', maxWidth: 440, height: '100dvh', margin: '0 auto', overflow: 'hidden', background: 'var(--bg)', boxShadow: '0 0 80px -20px rgba(40,25,12,.25)' }}>
-        <AppInner loginAction={loginAction} staffLoginAction={staffLoginAction} registerForEventAction={registerForEventAction} portal={portal} hotelSlug={hotelSlug} startInApp={startInApp} session={session} surveyOffer={surveyOffer} portalConfig={portalConfig} events={events} />
+        <AppInner loginAction={loginAction} staffLoginAction={staffLoginAction} registerForEventAction={registerForEventAction} portal={portal} hotelSlug={hotelSlug} startInApp={startInApp} session={session} surveyOffer={surveyOffer} initialDuePopups={initialDuePopups} onMarkPopupShown={onMarkPopupShown} portalConfig={portalConfig} events={events} />
       </div>
     </LangCtx.Provider>
   );

@@ -1,10 +1,10 @@
 import { cookies } from 'next/headers';
-import { findHotelBySlug, getSimGuestByRoom, hasDuePopupSendsForRoom, listGuestEvents, parsePortalStore, withDefaults } from '@aidahos/db';
+import { findHotelBySlug, getSimGuestByRoom, listDuePopupSendsForRoom, listGuestEvents, parsePortalStore, withDefaults } from '@aidahos/db';
 import { GuestApp, type GuestSession } from '@/components/guest/guest-app';
 import { GUEST_COOKIE } from '@/lib/constants';
 import { mapGuestEvents } from '@/lib/events-map';
 import { defaultSurveyOffer } from '@/lib/survey-offer';
-import { loginGuest, loginStaff, registerForEvent } from './actions';
+import { loginGuest, loginStaff, markPopupShown, registerForEvent } from './actions';
 
 // Guest portal for a hotel. In production the MikroTik captive portal redirects
 // guests here (its login.html forwards the hotspot vars as query params). The visual
@@ -62,13 +62,21 @@ export default async function GuestHome({
     }
   }
 
-  // On the post-login return (?connected=1), offer the hotel's default survey — but only
-  // if there are no due popup sends waiting for this guest. Due popups take priority;
-  // the default survey fills in when nothing else is scheduled.
+  // On the post-login return (?connected=1), check for due popup sends first.
+  // Due popups take priority; the default survey fills in only when nothing is scheduled.
   let surveyOffer = null;
+  let initialDuePopups: Array<{ id: string; popupType: 'survey' | 'event' | 'announcement'; surveyId: string | null; eventId: string | null; content: Record<string, unknown> }> = [];
   if (connected && session?.room && hotel) {
-    const hasDue = await hasDuePopupSendsForRoom(hotel.id, session.room);
-    if (!hasDue) {
+    const dueSends = await listDuePopupSendsForRoom(hotel.id, session.room);
+    if (dueSends.length > 0) {
+      initialDuePopups = dueSends.map((s) => ({
+        id: s.id,
+        popupType: s.popupType,
+        surveyId: s.surveyId,
+        eventId: s.eventId,
+        content: (s.content ?? {}) as Record<string, unknown>,
+      }));
+    } else {
       surveyOffer = await defaultSurveyOffer(hotel.id, session.room, session.checkIn);
     }
   }
@@ -90,6 +98,8 @@ export default async function GuestHome({
       startInApp={connected || session !== null}
       session={session}
       surveyOffer={surveyOffer}
+      initialDuePopups={initialDuePopups}
+      onMarkPopupShown={markPopupShown}
       portalConfig={portalConfig}
       events={events}
     />

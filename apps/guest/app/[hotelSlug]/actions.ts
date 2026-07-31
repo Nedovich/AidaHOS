@@ -331,3 +331,8 @@ export async function submitCaptiveSurvey(
   });
   return { ok: true };
 }
+
+/** Mark a popup send as shown when the guest sees it (called from the client after render). */
+export async function markPopupShown(sendId: string): Promise<void> {
+  try { await markGuestPopupSendShown(sendId); } catch { /* non-fatal */ }
+}
