@@ -1722,6 +1722,23 @@ export async function listPopupSendsForStay(guestStayId: string): Promise<GuestP
   ) as Promise<GuestPopupSendRow[]>;
 }
 
+/** Check whether a guest (by hotelId + roomNo) has any due popup sends right now. */
+export async function hasDuePopupSendsForRoom(hotelId: string, roomNo: string): Promise<boolean> {
+  const rows = await withTenant(SUPER, (tx) =>
+    tx.select({ id: guestPopupSends.id })
+      .from(guestPopupSends)
+      .innerJoin(guestStays, eq(guestPopupSends.guestStayId, guestStays.id))
+      .where(and(
+        eq(guestStays.hotelId, hotelId),
+        eq(guestStays.roomNo, roomNo),
+        isNull(guestPopupSends.kickedAt),
+        lte(guestPopupSends.triggerAt, new Date()),
+      ))
+      .limit(1),
+  );
+  return rows.length > 0;
+}
+
 /** Get due popup sends for a specific guest stay (triggerAt <= now AND shownAt IS NULL). */
 export async function listDuePopupSendsForStay(guestStayId: string): Promise<GuestPopupSendRow[]> {
   return withTenant(SUPER, (tx) =>

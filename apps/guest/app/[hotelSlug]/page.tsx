@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { findHotelBySlug, getSimGuestByRoom, listGuestEvents, parsePortalStore, withDefaults } from '@aidahos/db';
+import { findHotelBySlug, getSimGuestByRoom, hasDuePopupSendsForRoom, listGuestEvents, parsePortalStore, withDefaults } from '@aidahos/db';
 import { GuestApp, type GuestSession } from '@/components/guest/guest-app';
 import { GUEST_COOKIE } from '@/lib/constants';
 import { mapGuestEvents } from '@/lib/events-map';
@@ -62,13 +62,15 @@ export default async function GuestHome({
     }
   }
 
-  // On the post-login return (?connected=1), offer the hotel's default survey before the
-  // portal — unless this guest already answered it this stay. The survey renders INLINE in
-  // whatever browser is showing the portal (captive mini-browser or real browser), so it
-  // never jumps contexts; after it completes, the runner returns to the portal home.
+  // On the post-login return (?connected=1), offer the hotel's default survey — but only
+  // if there are no due popup sends waiting for this guest. Due popups take priority;
+  // the default survey fills in when nothing else is scheduled.
   let surveyOffer = null;
   if (connected && session?.room && hotel) {
-    surveyOffer = await defaultSurveyOffer(hotel.id, session.room, session.checkIn);
+    const hasDue = await hasDuePopupSendsForRoom(hotel.id, session.room);
+    if (!hasDue) {
+      surveyOffer = await defaultSurveyOffer(hotel.id, session.room, session.checkIn);
+    }
   }
 
   // Per-hotel portal branding/content the admin composed and published (hotels.brand jsonb).
