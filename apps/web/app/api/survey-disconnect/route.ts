@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listDuePopupSends } from '@aidahos/db';
+import { listDuePopupSends, markGuestPopupSendKicked } from '@aidahos/db';
 import { mikrotikClient } from '@/lib/mikrotik';
 
 export const dynamic = 'force-dynamic';
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
         mikrotikKicked = await mt.disconnectHotspotUser(username);
       }
 
-      // shownAt is set by loginGuest when the guest reconnects and sees the popup.
+      await markGuestPopupSendKicked(send.id);
       results.push({ sendId: send.id, username, mikrotikKicked });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

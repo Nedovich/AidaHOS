@@ -16,8 +16,9 @@ import { events } from './events';
  *              at create time (so the guest app never needs to re-derive text from
  *              surveys/events at render time — one render path for all 3 types).
  * triggerAt  — when to disconnect the guest and show the popup.
- * shownAt    — set by loginGuest on reconnect when the popup is displayed.
- *              NULL means still scheduled; non-NULL means sent.
+ * kickedAt   — set by the cron route after a successful MikroTik disconnect.
+ *              NULL = not yet kicked; non-NULL = guest was disconnected (send is "sent").
+ * shownAt    — set by loginGuest on reconnect when the popup is actually displayed.
  */
 export const guestPopupSends = pgTable('guest_popup_sends', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -37,6 +38,7 @@ export const guestPopupSends = pgTable('guest_popup_sends', {
     .references(() => events.id, { onDelete: 'set null' }),
   content: jsonb('content').default(sql`'{}'::jsonb`),
   triggerAt: timestamp('trigger_at', { withTimezone: true }).notNull(),
+  kickedAt: timestamp('kicked_at', { withTimezone: true }),
   shownAt: timestamp('shown_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

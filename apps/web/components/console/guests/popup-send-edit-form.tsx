@@ -97,14 +97,28 @@ export function PopupSendEditForm({
               <label className="flabel" htmlFor="edit-survey-time">
                 {L(['Saat', 'Time'], lang)}
               </label>
-              <input
-                className="finput"
-                id="edit-survey-time"
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                required
-              />
+              <div className="time24-select">
+                <select
+                  className="fselect"
+                  id="edit-survey-time"
+                  value={time.split(':')[0] ?? '10'}
+                  onChange={(e) => setTime(`${e.target.value}:${time.split(':')[1] ?? '00'}`)}
+                >
+                  {Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0')).map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+                <span>:</span>
+                <select
+                  className="fselect"
+                  value={time.split(':')[1] ?? '00'}
+                  onChange={(e) => setTime(`${time.split(':')[0] ?? '10'}:${e.target.value}`)}
+                >
+                  {Array.from({ length: 60 }, (_, m) => String(m).padStart(2, '0')).map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 

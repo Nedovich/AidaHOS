@@ -1588,6 +1588,7 @@ export interface GuestPopupSendRow {
   eventId: string | null;
   content: PopupContentMap | null;
   triggerAt: Date;
+  kickedAt: Date | null;
   shownAt: Date | null;
   createdAt: Date;
   // joined from guest_stays
@@ -1609,6 +1610,7 @@ const POPUP_SEND_COLS = {
   eventId: guestPopupSends.eventId,
   content: guestPopupSends.content,
   triggerAt: guestPopupSends.triggerAt,
+  kickedAt: guestPopupSends.kickedAt,
   shownAt: guestPopupSends.shownAt,
   createdAt: guestPopupSends.createdAt,
 };
@@ -1680,6 +1682,15 @@ export async function setGuestPopupSendTrigger(id: string, triggerAt: Date): Pro
     tx.update(guestPopupSends)
       .set({ triggerAt })
       .where(and(eq(guestPopupSends.id, id), isNull(guestPopupSends.shownAt))),
+  );
+}
+
+/** Mark a popup send as kicked (= MikroTik disconnect succeeded). */
+export async function markGuestPopupSendKicked(id: string): Promise<void> {
+  await withTenant(SUPER, (tx) =>
+    tx.update(guestPopupSends)
+      .set({ kickedAt: new Date() })
+      .where(eq(guestPopupSends.id, id)),
   );
 }
 
@@ -1764,7 +1775,7 @@ export async function listDuePopupSends(): Promise<Array<GuestPopupSendRow & {
     .innerJoin(hotels, eq(guestPopupSends.hotelId, hotels.id))
     .innerJoin(guestStays, eq(guestPopupSends.guestStayId, guestStays.id))
     .where(and(
-      isNull(guestPopupSends.shownAt),
+      isNull(guestPopupSends.kickedAt),
       lte(guestPopupSends.triggerAt, new Date()),
     )),
   ) as Promise<any>;

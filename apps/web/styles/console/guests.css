@@ -193,6 +193,17 @@
   gap: var(--sp-5);
 }
 
+.time24-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.time24-select .fselect {
+  flex: 1;
+  text-align: center;
+}
+
 .guest-popup-preview-column {
   position: sticky;
   top: 20px;
@@ -788,6 +799,23 @@
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
+}
+
+.guests-notice--warning {
+  justify-content: flex-start;
+  border-color: var(--warning);
+  color: var(--warning);
+  background: var(--warning-soft);
+}
+
+.guests-notice--warning svg {
+  flex-shrink: 0;
+}
+
+.guests-notice--warning a {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
 }
 
 .guests-kpis {

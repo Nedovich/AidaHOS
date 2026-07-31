@@ -2,7 +2,8 @@
 
 import { type FormEvent, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, ChevronLeft, ClipboardList, RefreshCw, Smile, Users, X } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, Check, ChevronLeft, ClipboardList, RefreshCw, Smile, Users, X } from 'lucide-react';
 import { L, type Lang } from '@/lib/i18n';
 import type { PopupContentMap } from '@aidahos/db/portal-config';
 
@@ -145,12 +146,14 @@ export function NewPopupAutomationForm({
   lang,
   automation,
   surveys,
+  existingKinds,
   onSave,
 }: {
   hotelId: string;
   lang: Lang;
   automation?: PopupAutomationData | null;
   surveys: Array<{ id: string; name: string }>;
+  existingKinds?: Array<{ id: string; kind: AutomationKind }>;
   onSave: (input: PopupAutomationInput) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const router = useRouter();
@@ -164,6 +167,10 @@ export function NewPopupAutomationForm({
   const [status, setStatus] = useState<'active' | 'paused'>(automation?.status ?? 'active');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  // In create mode, if this hotel already has an automation for the selected
+  // kind, block the form entirely — only one slot per (hotel, kind) is allowed.
+  const conflict = !editing ? existingKinds?.find((a) => a.kind === kind) : undefined;
 
   const activeContent = content[activeLanguage];
   const typeOptions = useMemo(() => ([
@@ -199,18 +206,22 @@ export function NewPopupAutomationForm({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (conflict) return;
     if (!surveyId) {
       setError(L(['Lütfen bir anket seçin.', 'Please select a survey.'], lang));
       return;
     }
     setBusy(true);
     setError('');
+    window.dispatchEvent(new Event('aida:nav-start'));
     const res = await onSave({ kind, timing, surveyId, content, status });
     if (res.ok) {
       router.push(backHref);
       router.refresh();
+      window.dispatchEvent(new Event('aida:nav-end'));
       return;
     }
+    window.dispatchEvent(new Event('aida:nav-end'));
     setError(res.error ?? L(['Kaydedilemedi. Lütfen tekrar deneyin.', 'Could not save. Please try again.'], lang));
     setBusy(false);
   }
@@ -255,6 +266,27 @@ export function NewPopupAutomationForm({
         </div>
       )}
 
+      {conflict && (
+        <div className="guests-notice guests-notice--warning" role="alert">
+          <AlertTriangle size={16} />
+          <span>
+            {kind === 'checkout'
+              ? L(
+                  ['Bu otel için zaten bir Check-out Anketi otomasyonu belirlediniz. Yeni bir tane oluşturamazsınız. Değişiklik yapmak için mevcut otomasyonu düzenleyin.', 'You already have a Checkout Survey automation set for this hotel. You can\'t create a second one. To make changes, edit the existing automation.'],
+                  lang,
+                )
+              : L(
+                  ['Bu otel için zaten bir Karşılama Anketi otomasyonu belirlediniz. Yeni bir tane oluşturamazsınız. Değişiklik yapmak için mevcut otomasyonu düzenleyin.', 'You already have a Default Survey automation set for this hotel. You can\'t create a second one. To make changes, edit the existing automation.'],
+                  lang,
+                )}
+            {' '}
+            <Link href={`${backHref}/automations/${conflict.id}/edit`}>
+              {L(['Otomasyonu Düzenle', 'Edit Automation'], lang)}
+            </Link>
+          </span>
+        </div>
+      )}
+
       <form className="card guest-popup-automation-card" onSubmit={handleSubmit}>
         <div className="card__body guest-popup-automation-body">
           <div className="guest-popup-automation-fields">
@@ -267,6 +299,7 @@ export function NewPopupAutomationForm({
                     type="button"
                     key={optionKind}
                     onClick={() => selectKind(optionKind)}
+                    disabled={editing}
                   >
                     <span><Icon size={18} /></span>
                     <strong>{title}</strong>
@@ -276,6 +309,7 @@ export function NewPopupAutomationForm({
               </div>
             </section>
 
+            <div style={conflict ? { opacity: 0.5, pointerEvents: 'none' } : undefined}>
             <section className="guest-popup-automation-field">
               <label className="flabel" htmlFor="automation-survey">{L(['Anket', 'Survey'], lang)}</label>
               <select
@@ -369,6 +403,7 @@ export function NewPopupAutomationForm({
                 </label>
               </div>
             </section>
+            </div>
           </div>
 
           <aside className="guest-popup-preview-column">
@@ -390,11 +425,19 @@ export function NewPopupAutomationForm({
           <button className="btn btn--ghost" type="button" onClick={() => router.push(backHref)} disabled={busy}>
             {L(['Vazgeç', 'Cancel'], lang)}
           </button>
-          <button className="btn btn--primary" type="submit" disabled={busy}>
+          <button
+            className="btn btn--primary"
+            type="submit"
+            disabled={busy || Boolean(conflict)}
+            aria-busy={busy}
+            style={busy ? { opacity: 0.75, cursor: 'progress' } : undefined}
+          >
             {editing ? <Check size={16} /> : <RefreshCw size={16} />}
-            {editing
-              ? L(['Kaydet', 'Save'], lang)
-              : L(['Otomasyonu Oluştur', 'Create Automation'], lang)}
+            {busy
+              ? L(['Kaydediliyor…', 'Saving…'], lang)
+              : editing
+                ? L(['Kaydet', 'Save'], lang)
+                : L(['Otomasyonu Oluştur', 'Create Automation'], lang)}
           </button>
         </div>
       </form>

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getHotelById, listSurveys } from '@aidahos/db';
+import { getHotelById, getPopupAutomations, listSurveys } from '@aidahos/db';
 import { NewPopupAutomationForm } from '@/components/console/guests/new-popup-automation-form';
 import { getLang } from '@/lib/i18n-server';
 import { upsertPopupAutomationAction } from '../actions';
@@ -16,7 +16,10 @@ export default async function NewPopupAutomationPage({
     redirect('/no-hotel');
   }
 
-  const surveys = await listSurveys(hotel.hotelGroupId);
+  const [surveys, existingAutomations] = await Promise.all([
+    listSurveys(hotel.hotelGroupId),
+    getPopupAutomations(hotelId),
+  ]);
   const surveyOptions = surveys
     .filter((s) => s.status === 'published')
     .map((s) => ({ id: s.id, name: s.name }));
@@ -26,6 +29,7 @@ export default async function NewPopupAutomationPage({
       hotelId={hotelId}
       lang={lang}
       surveys={surveyOptions}
+      existingKinds={existingAutomations.map((a) => ({ id: a.id, kind: a.kind }))}
       onSave={async (input) => {
         'use server';
         return upsertPopupAutomationAction(hotelId, input);

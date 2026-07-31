@@ -229,6 +229,7 @@ export function NewPopupSendForm({
 
     setBusy(true);
     setError('');
+    window.dispatchEvent(new Event('aida:nav-start'));
     const triggerAt = localDatetimeToISO(date, time);
     const results = await Promise.all(recipientIds.map((id) => onSave({
       guestStayId: id,
@@ -242,8 +243,10 @@ export function NewPopupSendForm({
     if (!failed) {
       router.push(backHref);
       router.refresh();
+      window.dispatchEvent(new Event('aida:nav-end'));
       return;
     }
+    window.dispatchEvent(new Event('aida:nav-end'));
     setError(failed.error ?? L(['Bir hata oluştu.', 'An error occurred.'], lang));
     setBusy(false);
   }
@@ -464,7 +467,27 @@ export function NewPopupSendForm({
               </label>
               <label className="guest-popup-field">
                 <span className="flabel">{L(['Saat', 'Time'], lang)}</span>
-                <input className="finput" type="time" value={time} onChange={(event) => setTime(event.target.value)} />
+                <div className="time24-select">
+                  <select
+                    className="fselect"
+                    value={time.split(':')[0] ?? '10'}
+                    onChange={(event) => setTime(`${event.target.value}:${time.split(':')[1] ?? '00'}`)}
+                  >
+                    {Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0')).map((h) => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
+                  <span>:</span>
+                  <select
+                    className="fselect"
+                    value={time.split(':')[1] ?? '00'}
+                    onChange={(event) => setTime(`${time.split(':')[0] ?? '10'}:${event.target.value}`)}
+                  >
+                    {Array.from({ length: 60 }, (_, m) => String(m).padStart(2, '0')).map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
               </label>
             </div>
 
@@ -499,7 +522,13 @@ export function NewPopupSendForm({
           <button className="btn btn--ghost" type="button" onClick={() => router.push(backHref)} disabled={busy}>
             {L(['Vazgeç', 'Cancel'], lang)}
           </button>
-          <button className="btn btn--primary" type="submit" disabled={busy}>
+          <button
+            className="btn btn--primary"
+            type="submit"
+            disabled={busy}
+            aria-busy={busy}
+            style={busy ? { opacity: 0.75, cursor: 'progress' } : undefined}
+          >
             <Send />
             {busy ? L(['Gönderiliyor…', 'Sending…'], lang) : L(['Gönder', 'Send'], lang)}
           </button>

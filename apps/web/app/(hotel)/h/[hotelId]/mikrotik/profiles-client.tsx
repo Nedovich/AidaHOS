@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Check, Pencil, Plus, Router, Trash2, Wifi, X } from 'lucide-react';
 import type { HotspotProfile } from '@/lib/mikrotik';
 import {
@@ -220,9 +220,8 @@ export function ProfilesClient({
           </thead>
           <tbody>
             {profiles.map((p) => (
-              <>
+              <React.Fragment key={p.id}>
                 <tr
-                  key={p.id}
                   style={{ borderBottom: editingId === p.id ? 'none' : '1px solid var(--border-subtle, var(--border))' }}
                 >
                   <td style={{ padding: '14px 24px' }}>
@@ -284,7 +283,7 @@ export function ProfilesClient({
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             ))}
           </tbody>
         </table>

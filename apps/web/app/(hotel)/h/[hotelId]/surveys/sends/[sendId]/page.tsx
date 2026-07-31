@@ -49,8 +49,9 @@ export default async function SurveySendDetailPage({
     popupType: send.popupType,
     popupTitle: localized?.title ?? null,
     triggerAt: send.triggerAt.toISOString(),
+    kickedAt: send.kickedAt ? send.kickedAt.toISOString() : null,
     shownAt: send.shownAt ? send.shownAt.toISOString() : null,
-    status: send.shownAt ? 'sent' : 'scheduled',
+    status: send.shownAt ? 'completed' : send.kickedAt ? 'sent' : 'scheduled',
   };
 
   return (

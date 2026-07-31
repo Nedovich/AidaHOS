@@ -40,6 +40,7 @@ export interface SerializedPopupSend {
   popupType: PopupType;
   popupTitle: string | null;
   triggerAt: string | null;
+  kickedAt: string | null;
   shownAt: string | null;
   status: PopupSendStatus;
 }

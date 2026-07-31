@@ -35,6 +35,7 @@ export interface SerializedPopupSendDetail {
   popupType: PopupType;
   popupTitle: string | null;
   triggerAt: string;
+  kickedAt: string | null;
   shownAt: string | null;
   status: PopupSendStatus;
 }
@@ -187,9 +188,14 @@ export function GuestPopupSendDetailClient({
               <InfoRow icon={<PopupIcon />} label={popupTypeLabel(detail.popupType, lang)}>
                 {popupLabel}
               </InfoRow>
-              <InfoRow icon={<Send />} label={L(['Gönderim', 'Sent'], lang)}>
+              <InfoRow icon={<Send />} label={L(['Planlanan', 'Scheduled'], lang)}>
                 <span className="mono">{fmtDt(detail.triggerAt)}</span>
               </InfoRow>
+              {detail.kickedAt && (
+                <InfoRow icon={<WifiOff size={14} />} label={L(['Kick edildi', 'Kicked'], lang)}>
+                  <span className="mono">{fmtDt(detail.kickedAt)}</span>
+                </InfoRow>
+              )}
               {detail.shownAt && (
                 <InfoRow icon={<Check />} label={L(['Gösterildi', 'Shown At'], lang)}>
                   <span className="mono">{fmtDt(detail.shownAt)}</span>
@@ -203,7 +209,9 @@ export function GuestPopupSendDetailClient({
               <p>
                 {detail.status === 'scheduled'
                   ? L(['Bu popup henüz gönderilmedi. Planlanan zamanda otomatik olarak gönderilecek.', "This popup hasn't been sent yet. It will be sent automatically at the scheduled time."], lang)
-                  : L(['Popup gönderildi, misafirin görmesi bekleniyor.', "Popup sent, awaiting the guest to see it."], lang)}
+                  : detail.status === 'sent'
+                  ? L(['Misafir bağlantısı kesildi. Tekrar bağlanınca popup görüntülenecek.', 'Guest was disconnected. The popup will appear when they reconnect.'], lang)
+                  : L(['Popup gösterildi.', 'Popup was shown to the guest.'], lang)}
               </p>
             </div>
           </section>
@@ -251,6 +259,15 @@ export function GuestPopupSendDetailClient({
                     <div>
                       <strong>{L(['Popup gösterildi', 'Popup shown'], lang)}</strong>
                       <small>{fmtDt(detail.shownAt)}</small>
+                    </div>
+                  </div>
+                )}
+                {detail.kickedAt && (
+                  <div className="guest-email-timeline__item is-complete">
+                    <span className="guest-email-timeline__icon"><WifiOff size={14} /></span>
+                    <div>
+                      <strong>{L(['MikroTik kick edildi', 'MikroTik kicked'], lang)}</strong>
+                      <small>{fmtDt(detail.kickedAt)}</small>
                     </div>
                   </div>
                 )}
