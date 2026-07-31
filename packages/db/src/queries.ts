@@ -1722,7 +1722,12 @@ export async function listPopupSendsForStay(guestStayId: string): Promise<GuestP
   ) as Promise<GuestPopupSendRow[]>;
 }
 
-/** List due popup sends for a guest by (hotelId, roomNo) — triggerAt <= now AND kickedAt IS NULL. */
+/**
+ * List due popup sends for a guest by (hotelId, roomNo) — triggerAt <= now AND shownAt IS NULL.
+ * Used on the captive ?connected=1 return, where only the room is known (no stay id).
+ * kickedAt is deliberately NOT filtered: the cron sets it when it disconnects the guest,
+ * and this is exactly the popup we must show once they reconnect.
+ */
 export async function listDuePopupSendsForRoom(hotelId: string, roomNo: string): Promise<GuestPopupSendRow[]> {
   return withTenant(SUPER, (tx) =>
     tx.select(POPUP_SEND_WITH_GUEST_COLS)
@@ -1731,7 +1736,7 @@ export async function listDuePopupSendsForRoom(hotelId: string, roomNo: string):
       .where(and(
         eq(guestStays.hotelId, hotelId),
         eq(guestStays.roomNo, roomNo),
-        isNull(guestPopupSends.kickedAt),
+        isNull(guestPopupSends.shownAt),
         lte(guestPopupSends.triggerAt, new Date()),
       ))
       .orderBy(asc(guestPopupSends.triggerAt)),

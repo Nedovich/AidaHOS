@@ -198,13 +198,14 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
     content: s.content ?? {},
   }));
 
-  // Mark all due sends as shown so next login skips them.
-  for (const s of dueSends) {
-    try { await markGuestPopupSendShown(s.id); } catch { /* non-fatal */ }
-  }
+  // shownAt is NOT set here — it's set by markPopupShown once the guest actually sees the
+  // modal. Marking at login time would hide the popup before it was ever displayed
+  // (the captive flow bounces through MikroTik before rendering anything).
 
-  // Offer the hotel's default survey right after login (unless already answered this stay).
-  const survey = await defaultSurveyOffer(hotel.id, roomNo, res.guest.checkIn);
+  // Default survey only fills in when no due popup is waiting — due popups take priority.
+  const survey = duePopups.length > 0
+    ? null
+    : await defaultSurveyOffer(hotel.id, roomNo, res.guest.checkIn);
 
   return { ok: true, guestName: res.guest.guestName, username, survey, duePopups };
 }
