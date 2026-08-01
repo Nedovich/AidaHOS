@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listDuePopupSends, markGuestPopupSendKicked } from '@aidahos/db';
+import { guestUsername, listDuePopupSends, markGuestPopupSendKicked } from '@aidahos/db';
 import { mikrotikClient } from '@/lib/mikrotik';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
   const results: Array<{ sendId: string; username: string; mikrotikKicked: boolean; error?: string }> = [];
 
   for (const send of due) {
-    const username = `${send.hotelSlug}-${send.roomNo}`;
+    const username = guestUsername(send.hotelSlug, send.roomNo, send.guestStayId);
     let mikrotikKicked = false;
 
     try {

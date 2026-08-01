@@ -4,7 +4,7 @@ import { GuestApp, type GuestSession } from '@/components/guest/guest-app';
 import { GUEST_COOKIE } from '@/lib/constants';
 import { mapGuestEvents } from '@/lib/events-map';
 import { defaultSurveyOffer } from '@/lib/survey-offer';
-import { loginGuest, loginStaff, markPopupShown, registerForEvent } from './actions';
+import { autoLoginGuest, loginGuest, loginStaff, markPopupShown, registerForEvent } from './actions';
 
 // Guest portal for a hotel. In production the MikroTik captive portal redirects
 // guests here (its login.html forwards the hotspot vars as query params). The visual
@@ -23,6 +23,7 @@ export default async function GuestHome({
 
   const hotel = await findHotelBySlug(hotelSlug);
   const loginAction = loginGuest.bind(null, hotelSlug);
+  const autoLoginAction = autoLoginGuest.bind(null, hotelSlug);
   const staffLoginAction = loginStaff.bind(null, hotelSlug);
   const registerForEventAction = registerForEvent.bind(null, hotelSlug);
 
@@ -81,6 +82,12 @@ export default async function GuestHome({
     }
   }
 
+  // A returning guest hitting the captive portal (`ll` present = not online yet) while still
+  // holding a valid session cookie can be re-authenticated without the login form. This is
+  // the path taken after the popup cron kicks them off the gateway. autoLoginGuest re-checks
+  // the reservation server-side and refuses if the room has turned over.
+  const canAutoLogin = !!portal && session?.room != null;
+
   // Per-hotel portal branding/content the admin composed and published (hotels.brand jsonb).
   const portalConfig = hotel ? withDefaults(parsePortalStore(hotel.brand).published, hotel.name) : null;
 
@@ -92,10 +99,11 @@ export default async function GuestHome({
       hotelSlug={hotelSlug}
       hotelName={hotel?.name ?? null}
       loginAction={loginAction}
+      autoLoginAction={canAutoLogin ? autoLoginAction : undefined}
       staffLoginAction={staffLoginAction}
       registerForEventAction={registerForEventAction}
       portal={portal}
-      startInApp={connected || session !== null}
+      startInApp={connected || (session !== null && !canAutoLogin)}
       session={session}
       surveyOffer={surveyOffer}
       initialDuePopups={initialDuePopups}

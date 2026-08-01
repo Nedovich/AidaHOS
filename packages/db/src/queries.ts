@@ -460,6 +460,8 @@ export interface SimGuest {
   country?: string | null;
   roomType?: string | null;
   currency?: string | null;
+  tcNo?: string | null;
+  idNo?: string | null;
 }
 
 const SIM_GUEST_COLS = {
@@ -476,6 +478,8 @@ const SIM_GUEST_COLS = {
   country: hotelSimulation.country,
   roomType: hotelSimulation.roomType,
   currency: hotelSimulation.currency,
+  tcNo: hotelSimulation.tcNo,
+  idNo: hotelSimulation.idNo,
 } as const;
 
 /**
@@ -536,6 +540,8 @@ export async function upsertGuestStay(input: {
   country?: string | null;
   roomType?: string | null;
   currency?: string | null;
+  tcNo?: string | null;
+  idNo?: string | null;
   reservationRef?: string | null;
   surveyTriggerAt?: Date | null;
 }) {
@@ -557,6 +563,8 @@ export async function upsertGuestStay(input: {
         country: input.country ?? null,
         roomType: input.roomType ?? null,
         currency: input.currency ?? null,
+        tcNo: input.tcNo ?? null,
+        idNo: input.idNo ?? null,
         reservationRef: input.reservationRef ?? null,
         surveyTriggerAt: input.surveyTriggerAt ?? null,
       })
@@ -573,6 +581,8 @@ export async function upsertGuestStay(input: {
           country: input.country ?? null,
           roomType: input.roomType ?? null,
           currency: input.currency ?? null,
+          tcNo: input.tcNo ?? null,
+          idNo: input.idNo ?? null,
           reservationRef: input.reservationRef ?? null,
           lastVerifiedAt: new Date(),
           // surveyTriggerAt is intentionally NOT updated on re-login so a manual
@@ -623,6 +633,8 @@ export interface GuestStayRow {
   roomType: string | null;
   agency: string | null;
   currency: string | null;
+  tcNo: string | null;
+  idNo: string | null;
   birthDate: string;
   surveyTriggerAt: Date | null;
   surveyShownAt: Date | null;
@@ -644,6 +656,8 @@ const GUEST_STAY_COLS = {
   roomType: guestStays.roomType,
   agency: guestStays.agency,
   currency: guestStays.currency,
+  tcNo: guestStays.tcNo,
+  idNo: guestStays.idNo,
   birthDate: guestStays.birthDate,
   surveyTriggerAt: guestStays.surveyTriggerAt,
   surveyShownAt: guestStays.surveyShownAt,

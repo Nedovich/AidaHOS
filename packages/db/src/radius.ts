@@ -383,7 +383,7 @@ export async function getRadiusUser(username: string) {
  * Provision (or refresh) a guest's RADIUS credentials in `radcheck`.
  * Keyed by (username, attribute='Cleartext-Password'); updates the password on
  * repeat logins. The MikroTik gateway then authenticates the guest against this.
- *   username = `${hotel.slug}-${roomNo}`  (globally unique across hotels)
+ *   username = guestUsername(slug, roomNo, stayId)  (globally unique, per-reservation)
  *   password = birthDate (DDMMYYYY)
  */
 export async function upsertRadiusUser(input: {
@@ -436,6 +436,22 @@ export async function deleteRadiusUser(username: string): Promise<{ removed: num
   const del = await sql`delete from radcheck where username = ${username} returning id`;
   await sql`delete from radreply where username = ${username}`;
   return { removed: del.length };
+}
+
+/**
+ * RADIUS username for a guest: `{hotelSlug}-{roomNo}-{stayRef}`, where stayRef is the
+ * first 6 chars of the guest_stays row id.
+ *
+ * The stay suffix is what makes the identity per-*reservation* rather than per-room. Two
+ * guests occupying 310 in sequence get different usernames, so the second check-in no
+ * longer overwrites the first one's password, and every radacct session can be attributed
+ * to exactly one stay (and through it, to a person via guest_stays.tcNo / idNo).
+ *
+ * Still prefixed with the hotel slug so it stays globally unique and the `{slug}-%`
+ * lookups used for per-hotel session listings keep matching.
+ */
+export function guestUsername(hotelSlug: string, roomNo: string, stayId: string): string {
+  return `${hotelSlug}-${roomNo}-${stayId.slice(0, 6)}`;
 }
 
 /* ============================================================

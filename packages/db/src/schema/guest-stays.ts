@@ -35,6 +35,11 @@ export const guestStays = pgTable(
     country: text('country'),
     roomType: text('room_type'),
     currency: text('currency'),
+    // Identity documents as the PMS holds them: tcNo only for Turkish citizens, idNo the
+    // passport / ID number for everyone. Needed to attribute RADIUS session logs (5651)
+    // to a person rather than just a room.
+    tcNo: text('tc_no'),
+    idNo: text('id_no'),
     reservationRef: text('reservation_ref'),
     // Checkout survey trigger: when to interrupt the session and show the checkout survey.
     // Set automatically at login = checkout - hotel.survey_trigger_days (midnight of that day).

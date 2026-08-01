@@ -122,6 +122,12 @@ export type StaffLoginFn = (
   username: string,
 ) => Promise<{ ok: boolean; error?: string; username?: string }>;
 
+/** Re-login from the session cookie alone (no room/DOB) — see autoLoginGuest. */
+export type AutoLoginFn = () => Promise<{
+  ok: boolean; error?: string; username?: string; password?: string;
+  survey?: SurveyOffer | null; duePopups?: DuePopup[];
+}>;
+
 /* Post-login invite: "want to take the survey?" → Yes opens the default survey, No skips. */
 function SurveyInvite({ name, onYes, onNo }: { name: string; onYes: () => void; onNo: () => void }) {
   const { lang } = useLang();
@@ -177,6 +183,7 @@ export interface GuestAppProps {
   hotelSlug?: string;
   hotelName?: string | null;
   loginAction?: LoginFn;
+  autoLoginAction?: AutoLoginFn;
   staffLoginAction?: StaffLoginFn;
   registerForEventAction?: RegisterForEventFn;
   portal?: MikrotikPortal | null;
@@ -189,8 +196,12 @@ export interface GuestAppProps {
   events?: AidaEvent[];
 }
 
-function AppInner({ loginAction, staffLoginAction, registerForEventAction, portal, hotelSlug, startInApp, session, surveyOffer, initialDuePopups, onMarkPopupShown, portalConfig, events }: { loginAction?: LoginFn; staffLoginAction?: StaffLoginFn; registerForEventAction?: RegisterForEventFn; portal?: MikrotikPortal | null; hotelSlug?: string; startInApp?: boolean; session?: GuestSession | null; surveyOffer?: SurveyOffer | null; initialDuePopups?: DuePopup[]; onMarkPopupShown?: (id: string) => Promise<void>; portalConfig?: PortalConfig | null; events?: AidaEvent[] }) {
+function AppInner({ loginAction, autoLoginAction, staffLoginAction, registerForEventAction, portal, hotelSlug, startInApp, session, surveyOffer, initialDuePopups, onMarkPopupShown, portalConfig, events }: { loginAction?: LoginFn; autoLoginAction?: AutoLoginFn; staffLoginAction?: StaffLoginFn; registerForEventAction?: RegisterForEventFn; portal?: MikrotikPortal | null; hotelSlug?: string; startInApp?: boolean; session?: GuestSession | null; surveyOffer?: SurveyOffer | null; initialDuePopups?: DuePopup[]; onMarkPopupShown?: (id: string) => Promise<void>; portalConfig?: PortalConfig | null; events?: AidaEvent[] }) {
   const [stage, setStage] = useState<'splash' | 'login' | 'app'>(startInApp ? 'app' : 'splash');
+  // Silent re-login for a returning guest kicked off the gateway (see autoLoginGuest).
+  // While it runs we hold the splash so the login form never flashes; on failure we fall
+  // through to the normal flow and the guest types their room + birth-date as usual.
+  const [autoLoggingIn, setAutoLoggingIn] = useState<boolean>(!!autoLoginAction);
   // Due popups take priority over the default survey. On ?connected=1 the server
   // pre-fetches both; on the dev (no-MikroTik) path they come from the loginAction result.
   const [duePopups, setDuePopups] = useState<DuePopup[]>(initialDuePopups ?? []);
@@ -207,6 +218,31 @@ function AppInner({ loginAction, staffLoginAction, registerForEventAction, porta
   const [stack, setStack] = useState<string[]>([]);
   const [joined, setJoined] = useState<Set<string>>(new Set());
   const [sheet, setSheet] = useState<SheetState>({ type: null });
+
+  // Auto-login on mount: the guest arrived at the captive portal still holding a valid
+  // session cookie (typically right after the popup cron kicked them). Hand their
+  // credentials to the gateway and bounce back online — no form, no retyping.
+  useEffect(() => {
+    if (!autoLoginAction || !portal?.loginUrl) { setAutoLoggingIn(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await autoLoginAction();
+        if (cancelled) return;
+        if (res.ok && res.username) {
+          const origin = window.location.origin;
+          const dst = `${origin}/${hotelSlug ?? ''}?connected=1`;
+          // The gateway needs the password too; autoLoginGuest returns the username it
+          // provisioned, and the RADIUS password is the birth-date it looked up — so the
+          // action hands both back for exactly this redirect.
+          window.location.href = `${portal.loginUrl}?username=${encodeURIComponent(res.username)}&password=${encodeURIComponent(res.password ?? '')}&dst=${encodeURIComponent(dst)}`;
+          return;
+        }
+      } catch { /* fall through to the manual form */ }
+      if (!cancelled) setAutoLoggingIn(false);
+    })();
+    return () => { cancelled = true; };
+  }, [autoLoginAction, portal?.loginUrl, hotelSlug]);
 
   const brand = portalConfig ? brandFromConfig(portalConfig) : AIDA_BRANDS.aida!;
   // Real guest from the persisted session (room + name); other fields stay mock for now.
@@ -254,7 +290,9 @@ function AppInner({ loginAction, staffLoginAction, registerForEventAction, porta
       {stage === 'splash' && (
         <Splash
           brand={brand}
-          onEnter={() => setStage('login')}
+          // While the silent re-login is in flight the guest is about to be redirected,
+          // so entering manually would race it. Failure clears the flag and re-enables.
+          onEnter={autoLoggingIn ? () => {} : () => setStage('login')}
           splash={portalConfig?.splash}
           defaultLang={portalConfig?.langs.default}
           enabledLangs={portalConfig ? PORTAL_LANGS.filter((l) => portalConfig.langs.enabled.includes(l)) : undefined}
@@ -333,7 +371,7 @@ function AppInner({ loginAction, staffLoginAction, registerForEventAction, porta
   );
 }
 
-export function GuestApp({ loginAction, staffLoginAction, registerForEventAction, portal, hotelSlug, startInApp, session, surveyOffer, initialDuePopups, onMarkPopupShown, portalConfig, events }: GuestAppProps = {}) {
+export function GuestApp({ loginAction, autoLoginAction, staffLoginAction, registerForEventAction, portal, hotelSlug, startInApp, session, surveyOffer, initialDuePopups, onMarkPopupShown, portalConfig, events }: GuestAppProps = {}) {
   // Initial language = the portal's default (unless the guest already picked one).
   const [lang, setLangState] = useState<Lang>((portalConfig?.langs.default as Lang) ?? 'en');
   useEffect(() => {
@@ -346,7 +384,7 @@ export function GuestApp({ loginAction, staffLoginAction, registerForEventAction
   return (
     <LangCtx.Provider value={value}>
       <div style={{ position: 'relative', width: '100%', maxWidth: 440, height: '100dvh', margin: '0 auto', overflow: 'hidden', background: 'var(--bg)', boxShadow: '0 0 80px -20px rgba(40,25,12,.25)' }}>
-        <AppInner loginAction={loginAction} staffLoginAction={staffLoginAction} registerForEventAction={registerForEventAction} portal={portal} hotelSlug={hotelSlug} startInApp={startInApp} session={session} surveyOffer={surveyOffer} initialDuePopups={initialDuePopups} onMarkPopupShown={onMarkPopupShown} portalConfig={portalConfig} events={events} />
+        <AppInner loginAction={loginAction} autoLoginAction={autoLoginAction} staffLoginAction={staffLoginAction} registerForEventAction={registerForEventAction} portal={portal} hotelSlug={hotelSlug} startInApp={startInApp} session={session} surveyOffer={surveyOffer} initialDuePopups={initialDuePopups} onMarkPopupShown={onMarkPopupShown} portalConfig={portalConfig} events={events} />
       </div>
     </LangCtx.Provider>
   );

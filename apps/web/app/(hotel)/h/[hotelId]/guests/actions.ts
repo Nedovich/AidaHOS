@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getHotelById, getGuestStayById, deleteRadiusUser, isRadiusConfigured } from '@aidahos/db';
+import { getHotelById, getGuestStayById, deleteRadiusUser, guestUsername, isRadiusConfigured } from '@aidahos/db';
 import { canAccessHotel, getSession } from '@/lib/auth';
 import { mikrotikClientFromHotel } from '@/lib/mikrotik';
 
@@ -23,7 +23,7 @@ export async function disconnectGuestAction(
     const stay = await getGuestStayById(guestStayId);
     if (!stay) return { ok: false, routerOk: false, radiusOk: false, error: 'not-found' };
 
-    const username = `${hotel.slug}-${stay.roomNo}`;
+    const username = guestUsername(hotel.slug, stay.roomNo, stay.id);
     const mt = mikrotikClientFromHotel(hotel);
 
     // Step 1: kick from MikroTik. If this throws, stop — RADIUS untouched.
@@ -51,7 +51,7 @@ export async function disconnectRouterAction(
     const hotel = await assertHotelAccess(hotelId);
     const stay = await getGuestStayById(guestStayId);
     if (!stay) return { ok: false, error: 'not-found' };
-    const username = `${hotel.slug}-${stay.roomNo}`;
+    const username = guestUsername(hotel.slug, stay.roomNo, stay.id);
     const mt = mikrotikClientFromHotel(hotel);
     await mt.disconnectHotspotUser(username);
     return { ok: true };
@@ -68,7 +68,7 @@ export async function disconnectRadiusAction(
     const hotel = await assertHotelAccess(hotelId);
     const stay = await getGuestStayById(guestStayId);
     if (!stay) return { ok: false, error: 'not-found' };
-    const username = `${hotel.slug}-${stay.roomNo}`;
+    const username = guestUsername(hotel.slug, stay.roomNo, stay.id);
     if (isRadiusConfigured()) {
       await deleteRadiusUser(username);
     }

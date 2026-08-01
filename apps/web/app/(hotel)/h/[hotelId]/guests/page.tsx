@@ -1,5 +1,5 @@
 import { getHotelById, listGuestStays } from '@aidahos/db';
-import { listRadiusUsers, isRadiusConfigured } from '@aidahos/db';
+import { listRadiusUsers, guestUsername, isRadiusConfigured } from '@aidahos/db';
 import { GuestsClient, type SerializedGuest } from '@/components/console/guests/guests-client';
 import { getLang } from '@/lib/i18n-server';
 import { disconnectRouterAction, disconnectRadiusAction } from './actions';
@@ -39,15 +39,15 @@ export default async function GuestsPage({
   const hotel = await getHotelById(hotelId);
   const stays = hotel ? await listGuestStays(hotelId) : [];
 
-  // RADIUS: online/device/data bilgisi (opsiyonel — yapılandırılmamışsa skip)
+  // RADIUS: online/device/data bilgisi (opsiyonel — yapılandırılmamışsa skip).
+  // Keyed by the full RADIUS username rather than the room, since a room can hold several
+  // stays over time and each one has its own username (see guestUsername).
   const radiusMap = new Map<string, { online: boolean; bytes: number; sessions: number }>();
   if (hotel?.slug && isRadiusConfigured()) {
     try {
       const radiusUsers = await listRadiusUsers(hotel.slug);
       for (const u of radiusUsers) {
-        // username format: {slug}-{roomNo}
-        const room = u.username.slice(hotel.slug.length + 1);
-        radiusMap.set(room, { online: u.online, bytes: u.bytes, sessions: u.sessions });
+        radiusMap.set(u.username, { online: u.online, bytes: u.bytes, sessions: u.sessions });
       }
     } catch {
       // RADIUS erişilemez — sessizce devam et
@@ -58,7 +58,7 @@ export default async function GuestsPage({
 
   const guests: SerializedGuest[] = stays.map((s) => {
     const name = [s.firstName, s.lastName].filter(Boolean).join(' ') || `Oda ${s.roomNo}`;
-    const radius = radiusMap.get(s.roomNo);
+    const radius = hotel?.slug ? radiusMap.get(guestUsername(hotel.slug, s.roomNo, s.id)) : undefined;
     const isInhouse = s.checkOut ? s.checkOut > now : false;
     return {
       id: s.id,

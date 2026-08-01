@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getHotelById, getGuestStayById, getCheckoutSurveyForHotel, isRadiusConfigured, listPopupSendsForStay, listUserSessions } from '@aidahos/db';
+import { getHotelById, getGuestStayById, getCheckoutSurveyForHotel, guestUsername, isRadiusConfigured, listPopupSendsForStay, listUserSessions } from '@aidahos/db';
 import { getLang } from '@/lib/i18n-server';
 import { GuestDetailClient, type SerializedGuestDetail, type SerializedSession } from '@/components/console/guests/guest-detail-client';
 import { setGuestPopupSendAction } from './actions';
@@ -67,7 +67,7 @@ export default async function GuestDetailPage({
     : null;
 
   // RADIUS bağlantı geçmişi
-  const username = `${hotel.slug}-${stay.roomNo}`;
+  const username = guestUsername(hotel.slug, stay.roomNo, stay.id);
   let sessions: SerializedSession[] = [];
   let online = false;
   let dataToday = '—';

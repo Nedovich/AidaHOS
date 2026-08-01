@@ -32,6 +32,11 @@ export const hotelSimulation = pgTable(
     country: text('country'), // Ulke_Adi / Kimlik_Uyruk
     roomType: text('room_type'), // Oda_Tipi
     currency: text('currency'), // Doviz_Kodu
+    // Identity documents, kept as two separate fields exactly as the PMS holds them:
+    // tcNo is populated only for Turkish citizens, idNo carries the passport / ID number
+    // for everyone (Turkish guests included). Required for 5651 log attribution.
+    tcNo: text('tc_no'), // tckno
+    idNo: text('id_no'), // Kimlik_No
     active: boolean('active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
