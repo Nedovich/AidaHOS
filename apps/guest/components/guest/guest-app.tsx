@@ -303,7 +303,15 @@ function AppInner({ loginAction, staffLoginAction, registerForEventAction, porta
             const p = duePopups[0];
             if (p?.id) onMarkPopupShown?.(p.id);
             setDuePopups((prev) => prev.slice(1));
-            if (p?.popupType === 'survey') setTab('survey');
+            if (p?.popupType === 'survey') {
+              setTab('survey');
+            } else if (p?.popupType === 'event' && p.eventId) {
+              // Open the announced event's detail sheet; fall back to the events tab
+              // if the event is no longer in the guest-visible list.
+              const ev = eventList.find((e) => e.id === p.eventId);
+              if (ev) setSheet({ type: 'event', item: ev });
+              else setTab('events');
+            }
           }}
           onDismiss={() => {
             const p = duePopups[0];
