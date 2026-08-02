@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { findHotelBySlug, getSimGuestByRoom, listDuePopupSendsForRoom, listGuestEvents, parsePortalStore, withDefaults } from '@aidahos/db';
 import { GuestApp, type GuestSession } from '@/components/guest/guest-app';
-import { GUEST_COOKIE } from '@/lib/constants';
+import { CHECKOUT_GRACE_MS, GUEST_COOKIE } from '@/lib/constants';
 import { mapGuestEvents } from '@/lib/events-map';
 import { defaultSurveyOffer } from '@/lib/survey-offer';
 import { autoLoginGuest, loginGuest, loginStaff, markPopupShown, registerForEvent } from './actions';
@@ -39,7 +39,7 @@ export default async function GuestHome({
     const raw = (await cookies()).get(GUEST_COOKIE)?.value;
     if (raw) {
       const s = JSON.parse(raw) as { hotelSlug?: string; room?: string; name?: string; checkIn?: string; checkOut?: string };
-      const active = !s.checkOut || new Date(s.checkOut).getTime() > Date.now();
+      const active = !s.checkOut || new Date(s.checkOut).getTime() + CHECKOUT_GRACE_MS > Date.now();
       if (s.hotelSlug === hotelSlug && active) {
         session = { room: s.room ?? null, name: s.name ?? null, checkIn: s.checkIn ?? null, checkOut: s.checkOut ?? null };
       }
@@ -87,6 +87,9 @@ export default async function GuestHome({
   // the path taken after the popup cron kicks them off the gateway. autoLoginGuest re-checks
   // the reservation server-side and refuses if the room has turned over.
   const canAutoLogin = !!portal && session?.room != null;
+  // Logged unconditionally: when this is false the action never runs, so its own tracing
+  // would stay silent and we could not tell "not attempted" from "attempted and refused".
+  console.log('[auto-login] gate', { hotelSlug, hasPortal: !!portal, hasSessionRoom: session?.room != null, connected, canAutoLogin });
 
   // Per-hotel portal branding/content the admin composed and published (hotels.brand jsonb).
   const portalConfig = hotel ? withDefaults(parsePortalStore(hotel.brand).published, hotel.name) : null;

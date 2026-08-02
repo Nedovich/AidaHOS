@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import { checkoutTimingDays, createEventRegistration, createSurveyResponse, createGuestPopupSend, findHotelBySlug, getGuestStayByKey, getPopupAutomation, getSimGuestByRoom, getSurveyById, guestUsername, isRadiusConfigured, listDuePopupSendsForStay, listPopupSendsForStay, listUpcomingPopupSendsForStay, markGuestPopupSendShown, upsertGuestStay, upsertRadiusUser, type PopupContentMap } from '@aidahos/db';
 import { verifyGuest } from '@/lib/verify';
-import { GUEST_COOKIE } from '@/lib/constants';
+import { CHECKOUT_GRACE_MS, GUEST_COOKIE } from '@/lib/constants';
 import { defaultSurveyOffer, type SurveyOffer } from '@/lib/survey-offer';
 import { deriveScore } from '@/lib/score';
 
@@ -30,9 +30,6 @@ export type AutoLoginResult =
   | { ok: false; error: 'invalid' | 'not_found' | 'provisioning' | 'expired' | 'not_started' };
 
 const DOB = /^\d{8}$/; // DDMMYYYY
-// Internet is allowed only within the stay window. Grace past the stored check-out date
-// so a midnight-stored check-out still covers the usual ~noon hotel check-out.
-const CHECKOUT_GRACE_MS = 12 * 60 * 60 * 1000;
 
 /**
  * Captive-portal guest login.
@@ -63,9 +60,9 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
 
   const checkOut = res.guest.checkOut ? new Date(res.guest.checkOut) : null;
 
-  // Initial Session-Timeout: checkout + 1 day as safe default.
+  // Initial Session-Timeout: the same checkout + grace window the login gate above uses.
   // Refined after DB queries using guest_popup_sends (upcoming sends).
-  const checkoutPlus1Ms = checkOutMs != null ? checkOutMs + 24 * 60 * 60 * 1000 : null;
+  const checkoutPlus1Ms = checkOutMs != null ? checkOutMs + CHECKOUT_GRACE_MS : null;
   let sessionTimeoutSeconds: number | null = null;
   if (checkoutPlus1Ms != null) {
     sessionTimeoutSeconds = Math.max(60, Math.floor((checkoutPlus1Ms - now) / 1000));
@@ -180,11 +177,14 @@ export async function loginGuest(hotelSlug: string, room: string, dob: string): 
     return { ok: false, error: 'provisioning' };
   }
 
-  // Persist a guest session so re-opening the portal skips the login screen.
-  // Expires at checkout (fallback: 12h). Low-sensitivity (internet access itself is
-  // gated by RADIUS, not this cookie), so a plain JSON value is fine.
+  // Persist a guest session so re-opening the portal skips the login screen. Expires with
+  // the same checkout + grace window as the login gate and the Session-Timeout, so the
+  // cookie stays valid for as long as the guest can actually get online (otherwise the
+  // auto-login after a popup kick would fail during the grace period). Low-sensitivity
+  // (internet access itself is gated by RADIUS, not this cookie), so plain JSON is fine.
   const checkOutDate = res.guest.checkOut ? new Date(res.guest.checkOut) : null;
-  const expires = checkOutDate && checkOutDate.getTime() > Date.now() ? checkOutDate : new Date(Date.now() + 12 * 60 * 60 * 1000);
+  const expiresMs = checkOutDate ? checkOutDate.getTime() + CHECKOUT_GRACE_MS : Date.now() + CHECKOUT_GRACE_MS;
+  const expires = new Date(Math.max(expiresMs, Date.now() + 60 * 1000));
   const jar = await cookies();
   jar.set(
     GUEST_COOKIE,
@@ -360,34 +360,43 @@ export async function markPopupShown(sendId: string): Promise<void> {
  * differs and we refuse — the old guest falls back to the normal login form.
  */
 export async function autoLoginGuest(hotelSlug: string): Promise<AutoLoginResult> {
+  // Traced end-to-end: the captive mini-browser may keep a cookie jar separate from the
+  // guest's normal browser, in which case we never see GUEST_COOKIE and must fall back to
+  // the manual form. The log says which step declined so that stays diagnosable.
+  const log = (step: string, extra?: unknown) =>
+    console.log(`[auto-login] ${hotelSlug}: ${step}`, extra ?? '');
+
   const raw = (await cookies()).get(GUEST_COOKIE)?.value;
-  if (!raw) return { ok: false, error: 'invalid' };
+  if (!raw) { log('no cookie'); return { ok: false, error: 'invalid' }; }
 
   let cookieRoom: string | null = null;
   let cookieCheckIn: string | null = null;
   try {
     const s = JSON.parse(raw) as { hotelSlug?: string; room?: string; checkIn?: string };
-    if (s.hotelSlug !== hotelSlug) return { ok: false, error: 'invalid' };
+    if (s.hotelSlug !== hotelSlug) { log('cookie for another hotel', s.hotelSlug); return { ok: false, error: 'invalid' }; }
     cookieRoom = s.room ?? null;
     cookieCheckIn = s.checkIn ?? null;
   } catch {
+    log('cookie unparseable');
     return { ok: false, error: 'invalid' };
   }
-  if (!cookieRoom) return { ok: false, error: 'invalid' };
+  if (!cookieRoom) { log('cookie has no room'); return { ok: false, error: 'invalid' }; }
 
   const hotel = await findHotelBySlug(hotelSlug);
-  if (!hotel) return { ok: false, error: 'not_found' };
+  if (!hotel) { log('hotel not found'); return { ok: false, error: 'not_found' }; }
 
   const live = await getSimGuestByRoom(hotel.id, cookieRoom);
-  if (!live?.birthDate) return { ok: false, error: 'invalid' };
+  if (!live?.birthDate) { log('no live reservation for room', cookieRoom); return { ok: false, error: 'invalid' }; }
 
   // Room turnover guard: the reservation in the room must be the same one the cookie
   // was issued for. A mismatch means a new guest checked in — refuse the auto-login.
   const liveCheckIn = live.checkIn ? new Date(live.checkIn).getTime() : null;
   const cookieCheckInMs = cookieCheckIn ? new Date(cookieCheckIn).getTime() : null;
   if (liveCheckIn == null || cookieCheckInMs == null || liveCheckIn !== cookieCheckInMs) {
+    log('check-in mismatch (room turned over?)', { cookieCheckIn, liveCheckIn: live.checkIn });
     return { ok: false, error: 'invalid' };
   }
+  log('accepted, replaying login for room', cookieRoom);
 
   // Same path as a manual login (verification, RADIUS provisioning, stay capture,
   // session-timeout, due-popup lookup) — only the birth-date source differs.
